@@ -7,11 +7,8 @@ import (
 	"errors"
 )
 
-// Use a 32-byte key for AES-256
-var key = []byte("your-32-byte-secret-key-here!!!!")
-
-func Encrypt(data []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
+func Encrypt(key string, data []byte) ([]byte, error) {
+	block, err := aes.NewCipher([]byte(key))
 	if err != nil {
 		return nil, err
 	}
@@ -29,8 +26,8 @@ func Encrypt(data []byte) ([]byte, error) {
 	return gcm.Seal(nonce, nonce, data, nil), nil
 }
 
-func Decrypt(data []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
+func Decrypt(key string, data []byte) ([]byte, error) {
+	block, err := aes.NewCipher([]byte(key))
 	if err != nil {
 		return nil, err
 	}

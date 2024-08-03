@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"sync"
 	"time"
 	"xdb/p2p"
@@ -36,7 +37,7 @@ func NewServer(opts ServerOpts) *Server {
 }
 
 func (s *Server) Start() error {
-	fmt.Printf("[%s] Starting server", s.Transport.Addr())
+	log.Printf("[%s] Starting server", s.Transport.Addr())
 	if err := s.Transport.ListenAndAccept(); err != nil {
 		return err
 	}
@@ -49,14 +50,24 @@ func (s *Server) Close() {
 	close(s.quitch)
 }
 
-func (s *Server) OnPeer(peer p2p.Peer) error {
+func (s *Server) GetPeerGraph() string {
+	var peerAddresses []string
+	s.peerLock.Lock()
+	defer s.peerLock.Unlock()
+	for _, peer := range s.peers {
+		peerAddresses = append(peerAddresses, peer.RemoteAddr().String())
+	}
+	strPeers := strings.Join(peerAddresses, ", ")
+	return fmt.Sprintf("\n-----------\n[%s] : %s\n-----------\n", s.Transport.Addr(), strPeers)
+}
+
+func (s *Server) OnPeer(peer p2p.Peer) {
 	s.peerLock.Lock()
 	defer s.peerLock.Unlock()
 	peerAddr := peer.RemoteAddr().String()
 	s.peers[peerAddr] = peer
 	log.Printf("[%s] New peer connected: %s", time.Now().Format(time.RFC3339), peerAddr)
 	log.Printf("[%s] Total peers: %d", time.Now().Format(time.RFC3339), len(s.peers))
-	return nil
 }
 
 func (s *Server) Store(collection string, r io.Reader) error {
@@ -124,6 +135,8 @@ func (s *Server) loop() {
 			if err := gob.NewDecoder(bytes.NewReader(rpc.Payload)).Decode(&msg); err != nil {
 				log.Println("decoding error: ", err)
 			}
+
+			fmt.Println("RPC MESSAGE DECODED : ", msg.Collection, msg.Data)
 			if err := s.handleMessage(rpc.From, &msg); err != nil {
 				log.Println("handle message error: ", err)
 			}
@@ -133,34 +146,43 @@ func (s *Server) loop() {
 	}
 }
 
+/*
+handleMessage is the main function to handle the message from the peer or unknown source
+- When a message is received from a known peer, it is stored in the store
+- When a message is received from an unknown source, it is stored in the store and broadcasted to all the peers
+*/
 func (s *Server) handleMessage(from string, msg *Message) error {
-	log.Printf("[%s] Received message from %s: %s", time.Now().Format(time.RFC3339), from, string(*msg))
+	s.peerLock.Lock()
+	_, isPeer := s.peers[from]
+	s.peerLock.Unlock()
 
-	if err := s.Store("test", bytes.NewReader(*msg)); err != nil {
-		log.Printf("[%s] Error storing message: %v", time.Now().Format(time.RFC3339), err)
+	if err := s.Store(msg.Collection, bytes.NewReader(msg.Data)); err != nil {
+		log.Printf("[%s] Error storing peer message: %v", time.Now().Format(time.RFC3339), err)
 		return err
 	}
 
-	if from == "" {
-		log.Printf("[%s] Broadcasting message to peers", time.Now().Format(time.RFC3339))
-		return s.broadcast(msg)
+	if !isPeer {
+		s.broadcast(msg)
 	}
 
 	log.Printf("[%s] Message handled successfully", time.Now().Format(time.RFC3339))
 	return nil
 }
 
-func (s *Server) broadcast(msg *Message) error {
-	fmt.Println("broadcasting message to peers ", msg)
+func (s *Server) broadcast(msg *Message) {
+	log.Printf("[%s] Broadcasting message %s to peers", time.Now().Format(time.RFC3339), msg)
 
 	s.peerLock.Lock()
 	defer s.peerLock.Unlock()
 
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	encoder.Encode(msg)
+
 	for _, peer := range s.peers {
-		if err := peer.Send(*msg); err != nil {
+		if err := peer.Send(buffer.Bytes()); err != nil {
 			fmt.Printf("Error sending to peer %s: %v\n", peer.RemoteAddr(), err)
+			//TODO: add retry logic later
 		}
 	}
-
-	return nil
 }

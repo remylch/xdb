@@ -17,7 +17,7 @@ type TCPTransportOptions struct {
 	ListenAddr string
 	ShakeHands HandshakeFunc
 	Decoder    Decoder
-	OnPeer     func(Peer) error
+	OnPeer     func(Peer)
 }
 
 func NewTCPTransport(opts TCPTransportOptions) *TCPTransport {
@@ -74,6 +74,10 @@ func (t *TCPTransport) Addr() string {
 	return t.ListenAddr
 }
 
+func (t *TCPTransport) HandleRPC(rpc RPC) {
+	t.rpcch <- rpc
+}
+
 func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 	var err error
 
@@ -89,9 +93,7 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 	}
 
 	if t.OnPeer != nil {
-		if err = t.OnPeer(peer); err != nil {
-			return
-		}
+		t.OnPeer(peer)
 	}
 
 	for {

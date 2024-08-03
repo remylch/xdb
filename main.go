@@ -8,29 +8,24 @@ import (
 	"os"
 	"time"
 	"xdb/p2p"
+
+	"github.com/joho/godotenv"
 )
 
-func sendTestMessage(s *Server, msg string) error {
+func sendTestMessage(s *Server, msg Message) error {
 	var buffer bytes.Buffer
 	encoder := gob.NewEncoder(&buffer)
-	if err := encoder.Encode(Message(msg)); err != nil {
-		return err
+	if err := encoder.Encode(msg); err != nil {
+		return fmt.Errorf("encoding error: %v", err)
 	}
 
 	rpc := p2p.RPC{
+		From:    "unknown_source",
 		Payload: buffer.Bytes(),
 	}
 
-	s.peerLock.Lock()
-	defer s.peerLock.Unlock()
-
-	for _, peer := range s.peers {
-		if err := peer.Send(rpc.Payload); err != nil {
-			fmt.Printf("Error sending to peer %s: %v\n", peer.RemoteAddr(), err)
-		} else {
-			fmt.Printf("Message sent to peer %s\n", peer.RemoteAddr())
-		}
-	}
+	// Simulate receiving a message from an unknown source
+	s.Transport.(*p2p.TCPTransport).HandleRPC(rpc)
 
 	return nil
 }
@@ -55,23 +50,53 @@ func makeServer(dataDir, listenAddress string, nodes ...string) *Server {
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 
-	s1 := makeServer("./data/s1ddir", ":3000", ":4000", ":5000")
-	s2 := makeServer("./data/s2ddir", ":4000", ":3000", ":5000")
-	s3 := makeServer("./data/s3ddir", ":5000", ":3000", ":4000")
+	s1 := makeServer("./data/s1ddir", ":3000")
+	s2 := makeServer("./data/s2ddir", ":4000", ":3000")
+	s3 := makeServer("./data/s3ddir", ":6000", ":4000", ":3000")
 
-	go s1.Start()
-	go s2.Start()
-	go s3.Start()
+	servers := []*Server{s1, s2, s3}
+
+	for _, s := range servers {
+		go func(s *Server) {
+			if err := s.Start(); err != nil {
+				log.Fatalln(err)
+			}
+
+		}(s)
+	}
+
 	time.Sleep(3 * time.Second)
 
 	// Test sending a message from s1 to s2
-	err := sendTestMessage(s1, "Hello from s1")
+	err = sendTestMessage(s3, Message{
+		Collection: "test",
+		Data:       []byte("Hello from unknown source"),
+	})
+
 	if err != nil {
 		fmt.Printf("Error sending message: %v\n", err)
 	}
+
+	time.Sleep(3 * time.Second)
+
+	log.Println(s1.GetPeerGraph())
+	log.Println(s2.GetPeerGraph())
+	log.Println(s3.GetPeerGraph())
+
+	b1, _ := s1.Retrieve("test")
+	b2, _ := s2.Retrieve("test")
+	b3, _ := s3.Retrieve("test")
+
+	log.Println(bytes.Equal(b1, b2))
+	log.Println(bytes.Equal(b2, b3))
 
 	select {}
 }

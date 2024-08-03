@@ -14,13 +14,14 @@ type Store interface {
 
 type XDBStore struct {
 	DefaultDataDir string
-	HashKey        string
+	hashKey        string
 }
 
 func NewXDBStore(dataDir string) *XDBStore {
 	store := &XDBStore{
 		DefaultDataDir: dataDir,
-		HashKey:        "key",
+		//HashKey should be 32 bytes long
+		hashKey: os.Getenv("HASH_KEY"),
 	}
 
 	//Write default data dir
@@ -61,9 +62,7 @@ func (s *XDBStore) Get(collection string) ([]byte, error) {
 		return nil, err
 	}
 
-	data, err = Decrypt(data)
-
-	fmt.Println("decrypted data", data)
+	data, err = Decrypt(s.hashKey, data)
 
 	if err != nil {
 		return nil, err
@@ -108,7 +107,7 @@ func (s *XDBStore) Save(collection string, b []byte) (bool, error) {
 		return false, err
 	}
 
-	b, err = Encrypt(b)
+	b, err = Encrypt(s.hashKey, b)
 
 	if err != nil {
 		return false, err

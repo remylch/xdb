@@ -2,15 +2,20 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 	"xdb/p2p"
 	"xdb/store"
+
+	"github.com/gorilla/websocket"
 )
 
 type ServerOpts struct {
@@ -21,10 +26,11 @@ type ServerOpts struct {
 
 type Server struct {
 	ServerOpts
-	peerLock sync.Mutex
-	peers    map[string]p2p.Peer
-	store    *store.XDBStore
-	quitch   chan struct{}
+	peerLock   sync.Mutex
+	peers      map[string]p2p.Peer
+	store      *store.XDBStore
+	quitch     chan struct{}
+	httpServer *http.Server
 }
 
 func NewServer(opts ServerOpts) *Server {
@@ -33,6 +39,10 @@ func NewServer(opts ServerOpts) *Server {
 		store:      store.NewXDBStore(opts.DataDir),
 		quitch:     make(chan struct{}),
 		peers:      make(map[string]p2p.Peer),
+		httpServer: &http.Server{
+			Addr:    opts.Transport.Addr(),
+			Handler: http.DefaultServeMux,
+		},
 	}
 }
 
@@ -41,6 +51,14 @@ func (s *Server) Start() error {
 	if err := s.Transport.ListenAndAccept(); err != nil {
 		return err
 	}
+
+	go func() {
+		http.HandleFunc("/ws", s.handleWebSocket)
+		if err := s.httpServer.ListenAndServe(); err != nil {
+			log.Fatalf("HTTP server error: %v", err)
+		}
+	}()
+
 	s.bootstrapNetwork()
 	s.loop()
 	return nil
@@ -48,17 +66,25 @@ func (s *Server) Start() error {
 
 func (s *Server) Close() {
 	close(s.quitch)
+	//Stop http server
+	if s.httpServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+		}
+	}
 }
 
 func (s *Server) GetPeerGraph() string {
-	var peerAddresses []string
+	var peerServerAddresses []string
 	s.peerLock.Lock()
 	defer s.peerLock.Unlock()
 	for _, peer := range s.peers {
-		peerAddresses = append(peerAddresses, peer.RemoteAddr().String())
+		peerServerAddresses = append(peerServerAddresses, peer.RemoteAddr().String())
 	}
-	strPeers := strings.Join(peerAddresses, ", ")
-	return fmt.Sprintf("\n-----------\n[%s] : %s\n-----------\n", s.Transport.Addr(), strPeers)
+	strPeersServer := strings.Join(peerServerAddresses, ", ")
+	return fmt.Sprintf("\n-----------\n[%s] : \nServers: %s\n-----------\n", s.Transport.Addr(), strPeersServer)
 }
 
 func (s *Server) OnPeer(peer p2p.Peer) {
@@ -66,7 +92,7 @@ func (s *Server) OnPeer(peer p2p.Peer) {
 	defer s.peerLock.Unlock()
 	peerAddr := peer.RemoteAddr().String()
 	s.peers[peerAddr] = peer
-	log.Printf("[%s] New peer connected: %s", time.Now().Format(time.RFC3339), peerAddr)
+	log.Printf("[%s] New peer server connected: %s", time.Now().Format(time.RFC3339), peerAddr)
 	log.Printf("[%s] Total peers: %d", time.Now().Format(time.RFC3339), len(s.peers))
 }
 
@@ -83,7 +109,6 @@ func (s *Server) Store(collection string, r io.Reader) error {
 	}
 
 	if !hasSavedNewData {
-		fmt.Printf("[%s] data already exists\n", collection)
 		return nil
 	}
 
@@ -130,13 +155,12 @@ func (s *Server) loop() {
 	for {
 		select {
 		case rpc := <-s.Transport.Consume():
-			fmt.Println("RPC received : ", rpc)
+			fmt.Printf("RPC received from peer %s \n", rpc.From)
 			var msg Message
 			if err := gob.NewDecoder(bytes.NewReader(rpc.Payload)).Decode(&msg); err != nil {
 				log.Println("decoding error: ", err)
 			}
 
-			fmt.Println("RPC MESSAGE DECODED : ", msg.Collection, msg.Data)
 			if err := s.handleMessage(rpc.From, &msg); err != nil {
 				log.Println("handle message error: ", err)
 			}
@@ -184,5 +208,116 @@ func (s *Server) broadcast(msg *Message) {
 			fmt.Printf("Error sending to peer %s: %v\n", peer.RemoteAddr(), err)
 			//TODO: add retry logic later
 		}
+	}
+}
+
+func (s *Server) handleClientRequest(from string, msg *Message) error {
+	var response []byte
+	var err error
+
+	switch msg.Operation {
+	case Operation(OPERATION_READ):
+		fmt.Println("write msg : ", msg)
+		response, err = s.Retrieve(msg.Collection)
+	case Operation(OPERATION_WRITE):
+		fmt.Println("write msg : ", msg)
+		err = s.Store(msg.Collection, bytes.NewReader(msg.Data))
+		if err != nil {
+			return err
+		}
+		//s.broadcast(peerMsg)
+		return nil
+	default:
+		err = fmt.Errorf("unknown operation: %s", msg.Operation)
+	}
+
+	if err != nil {
+		response = []byte(err.Error())
+	}
+
+	// Send response back to the client
+	rpc := p2p.RPC{
+		Payload: response,
+	}
+
+	fmt.Println("response : ", rpc)
+
+	var buf bytes.Buffer
+	encoder := gob.NewEncoder(&buf)
+
+	if err := encoder.Encode(&rpc); err != nil {
+		return err
+	}
+
+	s.peerLock.Lock()
+	peer, ok := s.peers[from]
+	s.peerLock.Unlock()
+
+	if !ok {
+		return fmt.Errorf("peer not found: %s", from)
+	}
+
+	return peer.Send(buf.Bytes())
+}
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true // Allow all origins for this example
+	},
+}
+
+func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("WebSocket upgrade error:", err)
+		return
+	}
+	defer conn.Close()
+
+	for {
+		messageType, p, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("WebSocket read error:", err)
+			return
+		}
+
+		log.Println("WebSocket message received:", messageType, string(p))
+
+		var msg Message
+		if err := json.Unmarshal(p, &msg); err != nil {
+			log.Println("JSON unmarshal error:", err)
+			continue
+		}
+
+		if msg.Collection != "" {
+			response, err := s.handleWebSocketMessage(msg)
+			if err != nil {
+				log.Println("Handle websocket message error:", err)
+				response = []byte(err.Error())
+			}
+			if err := conn.WriteMessage(messageType, response); err != nil {
+				log.Println("WebSocket write error:", err)
+				return
+			}
+		}
+	}
+}
+
+func (s *Server) handleWebSocketMessage(msg Message) ([]byte, error) {
+	switch msg.Operation {
+	case "write":
+		if err := s.Store(msg.Collection, bytes.NewReader(msg.Data)); err != nil {
+			return nil, fmt.Errorf("error storing WebSocket message: %v", err)
+		}
+		s.broadcast(&msg)
+		return []byte("Write operation successful"), nil
+	case "read":
+		data, err := s.Retrieve(msg.Collection)
+		if err != nil {
+			return nil, fmt.Errorf("error retrieving data: %v", err)
+		}
+		return data, nil
+	default:
+		return nil, fmt.Errorf("unknown operation: %s", msg.Operation)
 	}
 }

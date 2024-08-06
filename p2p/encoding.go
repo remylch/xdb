@@ -8,6 +8,7 @@ import (
 type Decoder interface {
 	Decode(io.Reader, *RPC) error
 }
+
 type GOBDecoder struct{}
 
 func (dec GOBDecoder) Decode(r io.Reader, msg *RPC) error {

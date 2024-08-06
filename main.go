@@ -20,7 +20,7 @@ func sendTestMessage(s *Server, msg Message) error {
 	}
 
 	rpc := p2p.RPC{
-		From:    "unknown_source",
+		From:    "client_source",
 		Payload: buffer.Bytes(),
 	}
 
@@ -33,7 +33,6 @@ func sendTestMessage(s *Server, msg Message) error {
 func makeServer(dataDir, listenAddress string, nodes ...string) *Server {
 	tcpOpts := p2p.TCPTransportOptions{
 		ListenAddr: listenAddress,
-		ShakeHands: p2p.NOPHandshakeFunc,
 		Decoder:    p2p.DefaultDecoder{},
 	}
 	tcpTransport := p2p.NewTCPTransport(tcpOpts)
@@ -49,6 +48,7 @@ func makeServer(dataDir, listenAddress string, nodes ...string) *Server {
 	return s
 }
 
+// Base server is running on :6789 port
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -58,9 +58,10 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 
-	s1 := makeServer("./data/s1ddir", ":3000")
-	s2 := makeServer("./data/s2ddir", ":4000", ":3000")
-	s3 := makeServer("./data/s3ddir", ":6000", ":4000", ":3000")
+	s1 := makeServer("./data/s1ddir", ":6789")
+
+	s2 := makeServer("./data/s2ddir", ":4000", ":6789")
+	s3 := makeServer("./data/s3ddir", ":6000", ":4000", ":6789")
 
 	servers := []*Server{s1, s2, s3}
 
@@ -69,34 +70,20 @@ func main() {
 			if err := s.Start(); err != nil {
 				log.Fatalln(err)
 			}
-
 		}(s)
 	}
 
 	time.Sleep(3 * time.Second)
 
-	// Test sending a message from s1 to s2
 	err = sendTestMessage(s3, Message{
 		Collection: "test",
 		Data:       []byte("Hello from unknown source"),
+		Operation:  Operation(OPERATION_WRITE),
 	})
 
 	if err != nil {
 		fmt.Printf("Error sending message: %v\n", err)
 	}
-
-	time.Sleep(3 * time.Second)
-
-	log.Println(s1.GetPeerGraph())
-	log.Println(s2.GetPeerGraph())
-	log.Println(s3.GetPeerGraph())
-
-	b1, _ := s1.Retrieve("test")
-	b2, _ := s2.Retrieve("test")
-	b3, _ := s3.Retrieve("test")
-
-	log.Println(bytes.Equal(b1, b2))
-	log.Println(bytes.Equal(b2, b3))
 
 	select {}
 }

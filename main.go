@@ -2,39 +2,83 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
-	"fmt"
 	"log"
+	"net"
 	"os"
 	"time"
 	"xdb/p2p"
+	"xdb/shared"
 
-	"github.com/joho/godotenv"
+	env "github.com/joho/godotenv"
 )
 
-func sendTestMessage(s *Server, msg Message) error {
-	var buffer bytes.Buffer
-	encoder := gob.NewEncoder(&buffer)
-	if err := encoder.Encode(msg); err != nil {
-		return fmt.Errorf("encoding error: %v", err)
-	}
+// message sent from a client to one of the servers
+func sendTestMessage(s *Server) {
+	go func() {
+		conn, err := net.Dial("tcp", s.Transport.Addr())
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+		defer conn.Close()
 
-	rpc := p2p.RPC{
-		From:    "unknown_source",
-		Payload: buffer.Bytes(),
-	}
+		handshakeMsg := shared.Message{
+			Payload: p2p.HandshakeMessage{
+				Type: shared.ClientPeer,
+			},
+		}
 
-	// Simulate receiving a message from an unknown source
-	s.Transport.(*p2p.TCPTransport).HandleRPC(rpc)
+		msg := shared.Message{
+			Payload: MessageStoreFile{
+				Collection: "test",
+				Data:       []byte("Hello, World!"),
+			},
+		}
 
-	return nil
+		lengthBufHandshake := make([]byte, 4)
+		var bufferHandshake bytes.Buffer
+		encoderHandshake := gob.NewEncoder(&bufferHandshake)
+		if err := encoderHandshake.Encode(handshakeMsg); err != nil {
+			log.Fatal(err)
+		}
+
+		messageBytesHandshake := bufferHandshake.Bytes()
+		lengthHandshake := uint32(len(messageBytesHandshake))
+		binary.BigEndian.PutUint32(lengthBufHandshake, lengthHandshake)
+
+		//----------------
+
+		lengthBuf := make([]byte, 4)
+		var buffer bytes.Buffer
+		encoder := gob.NewEncoder(&buffer)
+		if err := encoder.Encode(msg); err != nil {
+			log.Fatal(err)
+		}
+
+		messageBytes := buffer.Bytes()
+		length := uint32(len(messageBytes))
+		binary.BigEndian.PutUint32(lengthBuf, length)
+
+		if _, err := conn.Write(append(lengthBufHandshake, messageBytesHandshake...)); err != nil {
+			log.Fatal(err)
+		}
+
+		time.Sleep(3 * time.Second)
+
+		if _, err := conn.Write(append(lengthBuf, messageBytes...)); err != nil {
+			log.Fatal(err)
+		}
+
+		select {}
+	}()
 }
 
 func makeServer(dataDir, listenAddress string, nodes ...string) *Server {
 	tcpOpts := p2p.TCPTransportOptions{
 		ListenAddr: listenAddress,
-		ShakeHands: p2p.NOPHandshakeFunc,
-		Decoder:    p2p.DefaultDecoder{},
+		ShakeHands: p2p.DefaultHandshake,
 	}
 	tcpTransport := p2p.NewTCPTransport(tcpOpts)
 
@@ -46,11 +90,12 @@ func makeServer(dataDir, listenAddress string, nodes ...string) *Server {
 
 	s := NewServer(opts)
 	tcpTransport.OnPeer = s.OnPeer
+	tcpTransport.OnPeerDisconnect = s.OnPeerDisconnect
 	return s
 }
 
 func main() {
-	err := godotenv.Load()
+	err := env.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
@@ -69,27 +114,14 @@ func main() {
 			if err := s.Start(); err != nil {
 				log.Fatalln(err)
 			}
-
 		}(s)
 	}
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(2 * time.Second)
 
-	// Test sending a message from s1 to s2
-	err = sendTestMessage(s3, Message{
-		Collection: "test",
-		Data:       []byte("Hello from unknown source"),
-	})
+	sendTestMessage(s3)
 
-	if err != nil {
-		fmt.Printf("Error sending message: %v\n", err)
-	}
-
-	time.Sleep(3 * time.Second)
-
-	log.Println(s1.GetPeerGraph())
-	log.Println(s2.GetPeerGraph())
-	log.Println(s3.GetPeerGraph())
+	time.Sleep(2 * time.Second)
 
 	b1, _ := s1.Retrieve("test")
 	b2, _ := s2.Retrieve("test")

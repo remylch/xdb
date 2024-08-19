@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 	"xdb/p2p"
+	"xdb/shared"
 	"xdb/store"
 )
 
@@ -37,7 +38,7 @@ func NewServer(opts ServerOpts) *Server {
 }
 
 func (s *Server) Start() error {
-	log.Printf("[%s] Starting server", s.Transport.Addr())
+	log.Printf("[%s] Starting server... \n", s.Transport.Addr())
 	if err := s.Transport.ListenAndAccept(); err != nil {
 		return err
 	}
@@ -66,11 +67,18 @@ func (s *Server) OnPeer(peer p2p.Peer) {
 	defer s.peerLock.Unlock()
 	peerAddr := peer.RemoteAddr().String()
 	s.peers[peerAddr] = peer
-	log.Printf("[%s] New peer connected: %s", time.Now().Format(time.RFC3339), peerAddr)
-	log.Printf("[%s] Total peers: %d", time.Now().Format(time.RFC3339), len(s.peers))
+	log.Printf("[%s] New [IsClient: %v] peer connected: %s, total peers: %d", s.Transport.Addr(), peer.IsClient(), peerAddr, len(s.peers))
 }
 
-func (s *Server) Store(collection string, r io.Reader) error {
+func (s *Server) OnPeerDisconnect(addr string) {
+	s.peerLock.Lock()
+	defer s.peerLock.Unlock()
+	delete(s.peers, addr)
+	log.Printf("[%s] Peer disconnected: %s, total peers: %d", s.Transport.Addr(), addr, len(s.peers))
+}
+
+func (s *Server) Store(collection string, msg MessageStoreFile, shouldBroadcast bool) error {
+	r := bytes.NewReader(msg.Data)
 	fileBuffer := new(bytes.Buffer)
 	if _, err := io.Copy(fileBuffer, r); err != nil {
 		return err
@@ -87,10 +95,18 @@ func (s *Server) Store(collection string, r io.Reader) error {
 		return nil
 	}
 
+	log.Printf("Data saved in collection [%s]\n", collection)
+
+	if shouldBroadcast {
+		s.broadcast(&shared.Message{Payload: msg})
+	}
+
 	return nil
 }
 
 func (s *Server) Retrieve(collection string) ([]byte, error) {
+	//TODO: Check if store.Has(collection) and return it
+	// else fetch it from peers if it's find, store it on the current peer disk too
 	data, err := s.store.Get(collection)
 	if err != nil {
 		return nil, err
@@ -110,7 +126,6 @@ func (s *Server) bootstrapNetwork() {
 				log.Printf("[%s] attempting to connect with remote: %s (attempt %d/%d)\n", s.Transport.Addr(), addr, i+1, maxRetries)
 				if err := s.Transport.Dial(addr); err != nil {
 					log.Printf("Error dialing bootstrap node %s: %v", addr, err)
-					time.Sleep(2 * time.Second)
 				} else {
 					log.Printf("Successfully connected to bootstrap node %s", addr)
 					return
@@ -121,6 +136,7 @@ func (s *Server) bootstrapNetwork() {
 	}
 }
 
+// loop is using streaming approach to read the rpc messages
 func (s *Server) loop() {
 	defer func() {
 		log.Println("Server stopped")
@@ -130,15 +146,16 @@ func (s *Server) loop() {
 	for {
 		select {
 		case rpc := <-s.Transport.Consume():
-			fmt.Println("RPC received : ", rpc)
-			var msg Message
-			if err := gob.NewDecoder(bytes.NewReader(rpc.Payload)).Decode(&msg); err != nil {
-				log.Println("decoding error: ", err)
+			var msg shared.Message
+
+			reader := bytes.NewReader(rpc.Payload)
+			if err := gob.NewDecoder(reader).Decode(&msg); err != nil {
+				log.Println("rpc decoding error: ", err)
 			}
 
-			fmt.Println("RPC MESSAGE DECODED : ", msg.Collection, msg.Data)
+			fmt.Println("RPC message received : ", msg)
 			if err := s.handleMessage(rpc.From, &msg); err != nil {
-				log.Println("handle message error: ", err)
+				log.Println("handle rpc message error: ", err)
 			}
 		case <-s.quitch:
 			return
@@ -147,42 +164,105 @@ func (s *Server) loop() {
 }
 
 /*
-handleMessage is the main function to handle the message from the peer or unknown source
-- When a message is received from a known peer, it is stored in the store
-- When a message is received from an unknown source, it is stored in the store and broadcasted to all the peers
+handleMessage is the main function to handle the message from the peers (client or server)
+- MessageStoreFile:
+- When a message is received from a client, it is stored and broadcasted to all the server peers
+- When a message is received from a server, it is only stored
+
+- MessageGetFile:
+- The data are retrieved from the peer's disk and sent to the client. If the data is not in the local disk, we find it from the other peers of the network.
+
+- MessageHandshake:
+- Handshake messages are used to confirm that the peer is connected to the network
 */
-func (s *Server) handleMessage(from string, msg *Message) error {
+func (s *Server) handleMessage(from string, initialMsg *shared.Message) error {
 	s.peerLock.Lock()
-	_, isPeer := s.peers[from]
+	peer, isPeer := s.peers[from]
 	s.peerLock.Unlock()
 
-	if err := s.Store(msg.Collection, bytes.NewReader(msg.Data)); err != nil {
-		log.Printf("[%s] Error storing peer message: %v", time.Now().Format(time.RFC3339), err)
-		return err
+	if !isPeer {
+		return fmt.Errorf("peer not found : %s", from)
 	}
 
-	if !isPeer {
-		s.broadcast(msg)
+	switch msg := initialMsg.Payload.(type) {
+	case MessageStoreFile:
+		if err := s.Store(msg.Collection, msg, peer.IsClient()); err != nil {
+			log.Printf("[%s] Error storing peer message: %v", s.Transport.Addr(), err)
+			return err
+		}
+	case MessageGetFile:
+		data, err := s.Retrieve(msg.Collection)
+		if err != nil {
+			return err
+		}
+		peer.Send(data)
+	case p2p.HandshakeMessage:
+		if err := s.ConfirmHandshake(peer); err != nil {
+			return err
+		}
 	}
 
 	log.Printf("[%s] Message handled successfully", time.Now().Format(time.RFC3339))
 	return nil
 }
 
-func (s *Server) broadcast(msg *Message) {
-	log.Printf("[%s] Broadcasting message %s to peers", time.Now().Format(time.RFC3339), msg)
+func (s *Server) broadcast(msg *shared.Message) {
+	log.Printf("[%s] Broadcasting message %s to peers", s.Transport.Addr(), msg)
 
 	s.peerLock.Lock()
 	defer s.peerLock.Unlock()
 
-	var buffer bytes.Buffer
-	encoder := gob.NewEncoder(&buffer)
-	encoder.Encode(msg)
+	var (
+		lengthBuf    []byte
+		messageBytes []byte
+		err          error
+	)
+
+	if lengthBuf, messageBytes, err = p2p.PrefixedLengthMessage(*msg); err != nil {
+		return
+	}
 
 	for _, peer := range s.peers {
-		if err := peer.Send(buffer.Bytes()); err != nil {
-			fmt.Printf("Error sending to peer %s: %v\n", peer.RemoteAddr(), err)
-			//TODO: add retry logic later
+		if !peer.IsClient() {
+			if err := peer.Send(append(lengthBuf, messageBytes...)); err != nil {
+				fmt.Printf("Error sending to peer %s: %v\n", peer.RemoteAddr(), err)
+				//TODO: add retry logic later
+			}
 		}
 	}
+}
+
+func (s *Server) ConfirmHandshake(peer p2p.Peer) error {
+	msg := shared.Message{
+		Payload: p2p.HandshakeMessage{
+			Type: shared.NodePeer,
+		},
+	}
+
+	lengthBuf, messageBytes, err := p2p.PrefixedLengthMessage(msg)
+
+	if err != nil {
+		return err
+	}
+
+	return peer.Send(append(lengthBuf, messageBytes...))
+}
+
+type MessageStoreFile struct {
+	Collection string
+	Data       []byte
+}
+
+type MessageGetFile struct {
+	Collection string
+}
+
+var once sync.Once
+
+func init() {
+	once.Do(func() {
+		gob.Register(p2p.HandshakeMessage{})
+		gob.Register(MessageStoreFile{})
+		gob.Register(MessageGetFile{})
+	})
 }

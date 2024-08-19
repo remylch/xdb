@@ -14,16 +14,17 @@ type TCPTransport struct {
 }
 
 type TCPTransportOptions struct {
-	ListenAddr string
-	ShakeHands HandshakeFunc
-	Decoder    Decoder
-	OnPeer     func(Peer)
+	ListenAddr       string
+	ShakeHands       HandshakeFunc
+	Decoder          Decoder
+	OnPeer           func(Peer)
+	OnPeerDisconnect func(string)
 }
 
 func NewTCPTransport(opts TCPTransportOptions) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOptions: opts,
-		rpcch:               make(chan RPC),
+		rpcch:               make(chan RPC, 1024),
 	}
 }
 
@@ -52,7 +53,7 @@ func (t *TCPTransport) ListenAndAccept() error {
 		return err
 	}
 	go t.start()
-	log.Println("TCP listening on", t.ListenAddr)
+	log.Println("TCP listening on ", t.ListenAddr)
 	return nil
 }
 
@@ -64,7 +65,6 @@ func (t *TCPTransport) start() {
 		}
 		if err != nil {
 			fmt.Printf("TCP accept error: %v\n", err)
-			continue
 		}
 		go t.handleConn(conn, false)
 	}
@@ -74,21 +74,21 @@ func (t *TCPTransport) Addr() string {
 	return t.ListenAddr
 }
 
-func (t *TCPTransport) HandleRPC(rpc RPC) {
-	t.rpcch <- rpc
-}
-
 func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 	var err error
 
 	defer func() {
-		fmt.Println("Dropping peer connection : ", err)
+		//Close connection gracefully
+		if t.OnPeerDisconnect != nil {
+			t.OnPeerDisconnect(conn.RemoteAddr().String())
+		}
 		conn.Close()
 	}()
 
 	peer := NewTCPPeer(conn, outbound)
 
 	if err = t.ShakeHands(peer); err != nil {
+		log.Printf("Handshake failed: %v\n", err)
 		return
 	}
 
@@ -97,22 +97,17 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 	}
 
 	for {
-		rpc := RPC{}
-		err = t.Decoder.Decode(conn, &rpc)
+		messageBuf := ReadPrefixedLengthMessage(conn)
 
-		if err != nil {
-			return
-		}
-
-		rpc.From = conn.RemoteAddr().String()
-
-		if rpc.IsStreaming {
-			peer.Wg.Add(1)
-			fmt.Printf("[%s] incoming stream, waiting...\n", conn.RemoteAddr())
-			peer.Wg.Wait()
-			fmt.Printf("[%s] stream closed, resuming read loop\n", conn.RemoteAddr())
+		if messageBuf.IsEmpty() {
 			continue
 		}
+
+		//log.Printf("[%s] RPC RECEIVED from %s with message %s", t.Addr(), conn.RemoteAddr().String(), messageBuf)
+
+		rpc := RPC{}
+		rpc.Payload = messageBuf
+		rpc.From = conn.RemoteAddr().String()
 
 		t.rpcch <- rpc
 	}

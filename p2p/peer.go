@@ -10,7 +10,6 @@ import (
 type Peer interface {
 	net.Conn
 	Send([]byte) error
-	CloseStream()
 	IsClient() bool
 	DefineType(shared.PeerType) error
 }
@@ -38,10 +37,6 @@ func (n *TCPPeer) Close() error {
 func (n *TCPPeer) Send(data []byte) error {
 	_, err := n.Conn.Write(data)
 	return err
-}
-
-func (n *TCPPeer) CloseStream() {
-	n.Wg.Done()
 }
 
 func (n *TCPPeer) IsClient() bool {

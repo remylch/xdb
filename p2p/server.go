@@ -1,4 +1,4 @@
-package main
+package p2p
 
 import (
 	"bytes"
@@ -9,21 +9,20 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"xdb/p2p"
 	"xdb/shared"
 	"xdb/store"
 )
 
 type ServerOpts struct {
 	DataDir        string
-	Transport      p2p.Transport
+	Transport      Transport
 	BootstrapNodes []string
 }
 
 type Server struct {
 	ServerOpts
 	peerLock sync.Mutex
-	peers    map[string]p2p.Peer
+	peers    map[string]Peer
 	store    *store.XDBStore
 	quitch   chan struct{}
 }
@@ -33,7 +32,7 @@ func NewServer(opts ServerOpts) *Server {
 		ServerOpts: opts,
 		store:      store.NewXDBStore(opts.DataDir),
 		quitch:     make(chan struct{}),
-		peers:      make(map[string]p2p.Peer),
+		peers:      make(map[string]Peer),
 	}
 }
 
@@ -51,6 +50,9 @@ func (s *Server) Close() {
 	close(s.quitch)
 }
 
+/*
+TODO: get peers from each node to return the graph
+*/
 func (s *Server) GetPeerGraph() string {
 	var peerAddresses []string
 	s.peerLock.Lock()
@@ -62,7 +64,7 @@ func (s *Server) GetPeerGraph() string {
 	return fmt.Sprintf("\n-----------\n[%s] : %s\n-----------\n", s.Transport.Addr(), strPeers)
 }
 
-func (s *Server) OnPeer(peer p2p.Peer) {
+func (s *Server) OnPeer(peer Peer) {
 	s.peerLock.Lock()
 	defer s.peerLock.Unlock()
 	peerAddr := peer.RemoteAddr().String()
@@ -163,6 +165,16 @@ func (s *Server) loop() {
 	}
 }
 
+func (s *Server) GetConnexions(client bool) []string {
+	clients := make([]string, 0)
+	for _, peer := range s.peers {
+		if peer.IsClient() == client {
+			clients = append(clients, peer.RemoteAddr().String())
+		}
+	}
+	return clients
+}
+
 /*
 handleMessage is the main function to handle the message from the peers (client or server)
 - MessageStoreFile:
@@ -196,7 +208,7 @@ func (s *Server) handleMessage(from string, initialMsg *shared.Message) error {
 			return err
 		}
 		peer.Send(data)
-	case p2p.HandshakeMessage:
+	case HandshakeMessage:
 		if err := s.ConfirmHandshake(peer); err != nil {
 			return err
 		}
@@ -218,7 +230,7 @@ func (s *Server) broadcast(msg *shared.Message) {
 		err          error
 	)
 
-	if lengthBuf, messageBytes, err = p2p.PrefixedLengthMessage(*msg); err != nil {
+	if lengthBuf, messageBytes, err = PrefixedLengthMessage(*msg); err != nil {
 		return
 	}
 
@@ -232,14 +244,14 @@ func (s *Server) broadcast(msg *shared.Message) {
 	}
 }
 
-func (s *Server) ConfirmHandshake(peer p2p.Peer) error {
+func (s *Server) ConfirmHandshake(peer Peer) error {
 	msg := shared.Message{
-		Payload: p2p.HandshakeMessage{
+		Payload: HandshakeMessage{
 			Type: shared.NodePeer,
 		},
 	}
 
-	lengthBuf, messageBytes, err := p2p.PrefixedLengthMessage(msg)
+	lengthBuf, messageBytes, err := PrefixedLengthMessage(msg)
 
 	if err != nil {
 		return err
@@ -261,7 +273,7 @@ var once sync.Once
 
 func init() {
 	once.Do(func() {
-		gob.Register(p2p.HandshakeMessage{})
+		gob.Register(HandshakeMessage{})
 		gob.Register(MessageStoreFile{})
 		gob.Register(MessageGetFile{})
 	})

@@ -16,7 +16,6 @@ type TCPTransport struct {
 type TCPTransportOptions struct {
 	ListenAddr       string
 	ShakeHands       HandshakeFunc
-	Decoder          Decoder
 	OnPeer           func(Peer)
 	OnPeerDisconnect func(string)
 }

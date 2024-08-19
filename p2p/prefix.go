@@ -23,11 +23,6 @@ func PrefixedLengthMessage(msg shared.Message) (shared.ByteSlice, shared.ByteSli
 	lengthBuf := make([]byte, 4)
 	binary.BigEndian.PutUint32(lengthBuf, length)
 
-	// Encode the handshake message
-	if err := encoder.Encode(msg); err != nil {
-		return nil, nil, fmt.Errorf("failed to encode handshake message: %v", err)
-	}
-
 	return lengthBuf, messageBytes, nil
 }
 

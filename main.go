@@ -34,13 +34,13 @@ func main() {
 
 	time.Sleep(2 * time.Second)
 
-	p2p.SendTestMessage(s3)
+	p2p.SendTestMessage(s3, "test")
 
 	time.Sleep(2 * time.Second)
 
-	b1, _ := s1.Retrieve("test")
-	b2, _ := s2.Retrieve("test")
-	b3, _ := s3.Retrieve("test")
+	b1 := s1.Retrieve("test")
+	b2 := s2.Retrieve("test")
+	b3 := s3.Retrieve("test")
 
 	log.Println(bytes.Equal(b1, b2))
 	log.Println(bytes.Equal(b2, b3))

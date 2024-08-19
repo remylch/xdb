@@ -22,7 +22,7 @@ func TestClientHandshake(t *testing.T) {
 
 	require.Len(t, s1.GetConnexions(true), 0, "No client should be connected initially")
 
-	SendTestMessage(s1)
+	SendTestMessage(s1, "test")
 
 	time.Sleep(200 * time.Millisecond)
 

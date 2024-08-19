@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"log"
 	"os"
 )
 
@@ -32,14 +34,12 @@ func NewXDBStore(dataDir string) *XDBStore {
 	return store
 }
 
-func getCollectionHash(collection string) string {
-	hash := sha1.Sum([]byte(collection))
-	hashStr := hex.EncodeToString(hash[:])
-	return hashStr
-}
-
-func (s *XDBStore) getFullPathWithHash(collection string) string {
-	return s.DefaultDataDir + "/" + getCollectionHash(collection)
+func (s *XDBStore) Has(collection string) bool {
+	_, err := os.Stat(s.DefaultDataDir + "/" + getCollectionHash(collection))
+	if err != nil && errors.Is(err, os.ErrNotExist) {
+		return false
+	}
+	return true
 }
 
 func (s *XDBStore) Get(collection string) ([]byte, error) {
@@ -69,10 +69,6 @@ func (s *XDBStore) Get(collection string) ([]byte, error) {
 	}
 
 	return data, nil
-}
-
-func isSameData(a, b []byte) bool {
-	return bytes.Equal(a, b)
 }
 
 func (s *XDBStore) Clear() error {
@@ -117,6 +113,8 @@ func (s *XDBStore) Save(collection string, b []byte) (bool, error) {
 		return false, fmt.Errorf("error writing to file: %s", err)
 	}
 
+	log.Printf("written %s to the disk", b)
+
 	return true, nil
 }
 
@@ -124,4 +122,18 @@ func (s *XDBStore) fileExists(collection string) bool {
 	filePath := s.getFullPathWithHash(collection)
 	_, err := os.Stat(filePath)
 	return !os.IsNotExist(err)
+}
+
+func getCollectionHash(collection string) string {
+	hash := sha1.Sum([]byte(collection))
+	hashStr := hex.EncodeToString(hash[:])
+	return hashStr
+}
+
+func (s *XDBStore) getFullPathWithHash(collection string) string {
+	return s.DefaultDataDir + "/" + getCollectionHash(collection)
+}
+
+func isSameData(a, b []byte) bool {
+	return bytes.Equal(a, b)
 }

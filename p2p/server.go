@@ -106,14 +106,19 @@ func (s *Server) Store(collection string, msg MessageStoreFile, shouldBroadcast 
 	return nil
 }
 
-func (s *Server) Retrieve(collection string) ([]byte, error) {
-	//TODO: Check if store.Has(collection) and return it
-	// else fetch it from peers if it's find, store it on the current peer disk too
+func (s *Server) Retrieve(collection string) []byte {
+	isCollectionOnDisk := s.store.Has(collection)
+	if !isCollectionOnDisk {
+		//TODO: fetch it from peers if it's find, store it on the current peer disk too
+		log.Printf("collection [%s] does not exist", collection)
+		return nil
+	}
 	data, err := s.store.Get(collection)
 	if err != nil {
-		return nil, err
+		log.Printf("[%s] Error retrieving data from local collection [%s]: %v", s.Transport.Addr(), collection, err)
+		return nil
 	}
-	return data, nil
+	return data
 }
 
 func (s *Server) bootstrapNetwork() {
@@ -203,15 +208,9 @@ func (s *Server) handleMessage(from string, initialMsg *shared.Message) error {
 			return err
 		}
 	case MessageGetFile:
-		data, err := s.Retrieve(msg.Collection)
-		if err != nil {
-			return err
-		}
-		peer.Send(data)
+		return peer.Send(s.Retrieve(msg.Collection))
 	case HandshakeMessage:
-		if err := s.ConfirmHandshake(peer); err != nil {
-			return err
-		}
+		return s.ConfirmHandshake(peer)
 	}
 
 	log.Printf("[%s] Message handled successfully", time.Now().Format(time.RFC3339))

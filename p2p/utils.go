@@ -6,12 +6,11 @@ import (
 	"encoding/gob"
 	"log"
 	"net"
-	"time"
 	"xdb/shared"
 )
 
 // message sent from a client to one of the servers
-func SendTestMessage(s *Server) {
+func SendTestMessage(s *Server, collection string) {
 	go func() {
 		conn, err := net.Dial("tcp", s.Transport.Addr())
 		if err != nil {
@@ -28,7 +27,7 @@ func SendTestMessage(s *Server) {
 
 		msg := shared.Message{
 			Payload: MessageStoreFile{
-				Collection: "test",
+				Collection: collection,
 				Data:       []byte("Hello, World!"),
 			},
 		}
@@ -60,8 +59,6 @@ func SendTestMessage(s *Server) {
 		if _, err := conn.Write(append(lengthBufHandshake, messageBytesHandshake...)); err != nil {
 			log.Fatal(err)
 		}
-
-		time.Sleep(3 * time.Second)
 
 		if _, err := conn.Write(append(lengthBuf, messageBytes...)); err != nil {
 			log.Fatal(err)

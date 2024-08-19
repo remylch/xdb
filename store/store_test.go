@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"os"
 	"testing"
 )
 
@@ -10,6 +11,7 @@ func tearDown(s *XDBStore) {
 }
 
 func TestXDBStore(t *testing.T) {
+	os.Setenv("HASH_KEY", "your-32-byte-secret-key-here!!!!")
 	collection := "test"
 	s := NewXDBStore("./specificDataDir")
 	input := []byte("hello")

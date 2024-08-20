@@ -10,11 +10,6 @@ services:
       - HASH_KEY=your-32-byte-secret-key-here!!!!
       - NODE_ADDR=:3000
       - HTTP_ADDR=:8080
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://graph:8081/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     command: ["./main"]
     networks:
       - graph
@@ -31,6 +26,22 @@ services:
       - NODE_ADDR=:3000
       - HTTP_ADDR=:8080
       - BOOTSTRAP_NODES=node1:3000
+    command: ["./main"]
+    networks:
+      - graph
+
+  node3:
+    depends_on:
+      - node2
+    build: .
+    ports:
+      - "8083:8080"
+      - "3003:3000"
+    environment:
+      - HASH_KEY=your-32-byte-secret-key-here!!!!
+      - NODE_ADDR=:3000
+      - HTTP_ADDR=:8080
+      - BOOTSTRAP_NODES=node1:3000,node2:3000
     command: ["./main"]
     networks:
       - graph

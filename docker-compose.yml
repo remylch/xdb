@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   node1:
@@ -11,16 +11,17 @@ services:
       - NODE_ADDR=:3000
       - HTTP_ADDR=:8080
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8081/health" ]
+      test: ["CMD", "curl", "-f", "http://graph:8081/health"]
       interval: 10s
       timeout: 5s
       retries: 5
     command: ["./main"]
+    networks:
+      - graph
 
   node2:
     depends_on:
-      node1:
-        condition: service_healthy
+      - node1
     build: .
     ports:
       - "8082:8080"
@@ -30,9 +31,10 @@ services:
       - NODE_ADDR=:3000
       - HTTP_ADDR=:8080
       - BOOTSTRAP_NODES=node1:3000
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8082/health" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     command: ["./main"]
+    networks:
+      - graph
+
+networks:
+  graph:
+    driver: bridge

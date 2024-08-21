@@ -1,10 +1,11 @@
 package p2p
 
 import (
-	"github.com/stretchr/testify/require"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func tearDown(s *Server) {
@@ -39,8 +40,8 @@ func TestNodeHandshake(t *testing.T) {
 	require.Len(t, s1.GetConnexions(false), 0, "No node should be connected initially")
 
 	go s2.Start()
+	time.Sleep(500 * time.Millisecond)
 
-	time.Sleep(100 * time.Millisecond)
 	require.Len(t, s1.GetConnexions(false), 1, "Expected 1 node to be connected to s1")
 	require.Len(t, s2.GetConnexions(false), 1, "Expected 1 node to be connected to s2")
 

@@ -1,0 +1,77 @@
+package store
+
+import (
+	"fmt"
+	"github.com/google/uuid"
+)
+
+type JSON map[string]interface{}
+
+type Collection struct {
+	id        uuid.UUID
+	name      string
+	indexes   []Index
+	documents []Document
+}
+
+// Document is a part of the collection.  It's an certain array of bytes into the collection file
+type Document struct {
+	XDBId uuid.UUID
+	Data  JSON
+}
+
+func NewCollection(name string) *Collection {
+	baseIndex := Index{
+		Id:   uuid.UUID{},
+		Name: "id",
+	}
+	return &Collection{
+		id:        uuid.New(),
+		name:      name,
+		indexes:   append(make([]Index, 0), baseIndex),
+		documents: make([]Document, 0),
+	}
+}
+
+func (c *Collection) Indexes() []Index {
+	return c.indexes
+}
+
+func (c *Collection) AddDocument(data JSON) uuid.UUID {
+	docId := uuid.New()
+	c.documents = append(c.documents, Document{
+		XDBId: docId,
+		Data:  data,
+	})
+	return docId
+}
+
+func (c *Collection) GetDocument(docId uuid.UUID) (Document, error) {
+	//TODO: find better way to find the document fast
+	for _, doc := range c.documents {
+		if doc.XDBId == docId {
+			return doc, nil
+		}
+	}
+
+	return Document{}, fmt.Errorf("document with id %s not found in collection %s", docId, c.name)
+}
+
+func (c *Collection) Delete(docId uuid.UUID) error {
+	idx := -1
+
+	for i, doc := range c.documents {
+		if doc.XDBId == docId {
+			idx = i
+			break
+		}
+	}
+
+	if idx == -1 {
+		return fmt.Errorf("document with id %s not found in collection %s", docId, c.name)
+	}
+
+	c.documents[idx] = c.documents[len(c.documents)-1]
+	c.documents = c.documents[:len(c.documents)-1]
+	return nil
+}

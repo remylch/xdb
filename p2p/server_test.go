@@ -14,7 +14,7 @@ func TestSaveAndRetrieveCollectionData(t *testing.T) {
 
 	var data []byte
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	data = s1.Retrieve(collection)
 

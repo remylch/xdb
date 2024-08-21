@@ -2,10 +2,10 @@ run:
 	go run .
 
 build:
-	@go build -o bin/gateway main.go
+	@go build -o bin/node main.go
 
 test:
-	@go test -v ./... -count=1
+	HASH_KEY=your-32-byte-secret-key-here!!!! go test ./... -count=1 -timeout 30s
 
 build-local-graph:
 	docker compose build

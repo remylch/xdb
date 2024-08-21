@@ -15,6 +15,7 @@ import (
 
 type ServerOpts struct {
 	DataDir        string
+	HashKey        string
 	Transport      Transport
 	BootstrapNodes []string
 }
@@ -30,7 +31,7 @@ type Server struct {
 func NewServer(opts ServerOpts) *Server {
 	return &Server{
 		ServerOpts: opts,
-		store:      store.NewXDBStore(opts.DataDir),
+		store:      store.NewXDBStore(opts.DataDir, opts.HashKey),
 		quitch:     make(chan struct{}),
 		peers:      make(map[string]Peer),
 	}

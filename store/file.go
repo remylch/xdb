@@ -1,7 +1,9 @@
 package store
 
+import "io"
+
 type File interface {
-	Content() []string
+	Content() io.Reader
 }
 
 type XDBIndexFile struct {

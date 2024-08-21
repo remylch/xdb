@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
 )
@@ -11,9 +12,8 @@ func tearDown(s *XDBStore) {
 }
 
 func TestXDBStore(t *testing.T) {
-	os.Setenv("HASH_KEY", "your-32-byte-secret-key-here!!!!")
 	collection := "test"
-	s := NewXDBStore("./specificDataDir")
+	s := NewXDBStore("./specificDataDir", "your-32-byte-secret-key-here!!!!")
 	input := []byte("hello")
 	dataChanged, err := s.Save(collection, input)
 
@@ -48,6 +48,25 @@ func TestXDBStore(t *testing.T) {
 	if !bytes.Equal(data, input) {
 		t.Error("data retrieved should be equal to input")
 	}
+
+	tearDown(s)
+}
+
+func TestStoreInitialization(t *testing.T) {
+	datadir := "./specificDataDir"
+	data := []byte("hello")
+
+	//Given the datadir and an existing collection file
+	err := os.MkdirAll(datadir, 0755)
+	require.NoError(t, err, "failed to create data directory")
+	err = os.WriteFile(datadir+"/UVZAFg==", data, 0644)
+	require.NoError(t, err, "failed to write data file")
+
+	collection := "test"
+	s := NewXDBStore(datadir, "your-32-byte-secret-key-here!!!!")
+
+	require.Len(t, s.collections, 1, "store should be initialized with one collection")
+	require.Equal(t, s.collections[0].name, collection, "collection name should be equal to the one created in the test")
 
 	tearDown(s)
 }

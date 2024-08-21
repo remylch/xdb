@@ -2,40 +2,64 @@ package store
 
 import (
 	"bytes"
-	"crypto/sha1"
-	"encoding/hex"
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 )
 
-type Store interface {
-	Save(string, []byte) error
-}
-
 type XDBStore struct {
 	DefaultDataDir string
 	hashKey        string
+	collections    []Collection
 }
 
-func NewXDBStore(dataDir string) *XDBStore {
-	store := &XDBStore{
-		DefaultDataDir: dataDir,
-		//HashKey should be 32 bytes long
-		hashKey: os.Getenv("HASH_KEY"),
+func NewXDBStore(dataDir string, hashKey string) *XDBStore {
+
+	if len(hashKey) != 32 {
+		log.Fatal("the hash key should be 32 bytes long")
 	}
 
-	//Write default data dir
-	if err := os.MkdirAll(store.DefaultDataDir, os.ModePerm); err != nil {
-		panic(err)
+	store := &XDBStore{
+		DefaultDataDir: dataDir,
+		hashKey:        hashKey,
 	}
+
+	if !dirExists(dataDir) {
+		//Write default data dir
+		if err := os.MkdirAll(store.DefaultDataDir, os.ModePerm); err != nil {
+			panic(err)
+		}
+	}
+
+	store.init()
 
 	return store
 }
 
+// TODO: Init store with existing collections from the data dir
+func (s *XDBStore) init() {
+	collectionsFiles, err := os.ReadDir(s.DefaultDataDir)
+
+	if err != nil {
+		log.Fatalf("Error reading collections directory: %v", err)
+	}
+
+	for _, file := range collectionsFiles {
+		hash := file.Name()
+		collectionName, err := decryptFilename(s.hashKey, hash)
+		if err != nil {
+			panic(err)
+		}
+		s.collections = append(s.collections, *NewCollection(collectionName))
+	}
+}
+
 func (s *XDBStore) Has(collection string) bool {
-	_, err := os.Stat(s.DefaultDataDir + "/" + getCollectionHash(collection))
+	_, err := os.Stat(s.DefaultDataDir + "/" + s.getCollectionHash(collection))
 	if err != nil && errors.Is(err, os.ErrNotExist) {
 		return false
 	}
@@ -43,7 +67,7 @@ func (s *XDBStore) Has(collection string) bool {
 }
 
 func (s *XDBStore) Get(collection string) ([]byte, error) {
-	file, err := os.Open(s.DefaultDataDir + "/" + getCollectionHash(collection))
+	file, err := os.Open(s.DefaultDataDir + "/" + s.getCollectionHash(collection))
 	defer file.Close()
 
 	if err != nil {
@@ -124,16 +148,67 @@ func (s *XDBStore) fileExists(collection string) bool {
 	return !os.IsNotExist(err)
 }
 
-func getCollectionHash(collection string) string {
-	hash := sha1.Sum([]byte(collection))
-	hashStr := hex.EncodeToString(hash[:])
-	return hashStr
+func (s *XDBStore) getCollectionHash(collection string) string {
+	res, err := encryptFilename(s.hashKey, collection)
+	if err != nil {
+		log.Printf("error encrypting collection name: %v", err)
+		return collection
+	}
+	return res
 }
 
 func (s *XDBStore) getFullPathWithHash(collection string) string {
-	return s.DefaultDataDir + "/" + getCollectionHash(collection)
+	return s.DefaultDataDir + "/" + s.getCollectionHash(collection)
+}
+
+func dirExists(dirPath string) bool {
+	info, err := os.Stat(dirPath)
+	if err != nil && errors.Is(err, os.ErrNotExist) {
+		return false
+	}
+	return info.IsDir()
 }
 
 func isSameData(a, b []byte) bool {
 	return bytes.Equal(a, b)
+}
+
+// encrypt encrypts the given plaintext string using AES encryption with the provided key and a fixed IV.
+func encryptFilename(key, plaintext string) (string, error) {
+	block, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		return "", err
+	}
+
+	// Use a fixed IV (initialization vector)
+	iv := []byte(key[:16]) // 16 bytes for AES-128
+
+	ciphertext := make([]byte, len(plaintext))
+	stream := cipher.NewCFBEncrypter(block, iv)
+	stream.XORKeyStream(ciphertext, []byte(plaintext))
+
+	// Return the encrypted string as a base64 encoded string
+	return base64.URLEncoding.EncodeToString(ciphertext), nil
+}
+
+// decrypt decrypts the given ciphertext string using AES encryption with the provided key and a fixed IV.
+func decryptFilename(key, ciphertext string) (string, error) {
+	ciphertextBytes, err := base64.URLEncoding.DecodeString(ciphertext)
+	if err != nil {
+		return "", err
+	}
+
+	block, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		return "", err
+	}
+
+	// Use the same fixed IV (initialization vector)
+	iv := []byte(key[:16]) // 16 bytes for AES-128
+
+	plaintext := make([]byte, len(ciphertextBytes))
+	stream := cipher.NewCFBDecrypter(block, iv)
+	stream.XORKeyStream(plaintext, ciphertextBytes)
+
+	return string(plaintext), nil
 }

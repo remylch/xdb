@@ -22,8 +22,13 @@ func startHttpServer() {
 
 func main() {
 	err := env.Load()
+
 	if err != nil {
 		log.Fatal("Error loading .env file")
+	}
+
+	if os.Getenv("HASH_KEY") == "" {
+		panic("HASH_KEY environment variable is required")
 	}
 
 	log.SetOutput(os.Stdout)

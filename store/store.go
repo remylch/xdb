@@ -9,28 +9,38 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
+)
+
+const (
+	DefaultDataDir = "/opt/xdb/data/"
 )
 
 type XDBStore struct {
-	DefaultDataDir string
-	hashKey        string
-	collections    []Collection
+	DataDir     string
+	hashKey     string
+	collections []Collection
 }
 
 func NewXDBStore(dataDir string, hashKey string) *XDBStore {
-
 	if len(hashKey) != 32 {
-		log.Fatal("the hash key should be 32 bytes long")
+		panic("the hash key should be 32 bytes long")
+	}
+
+	dataDir = strings.TrimSpace(dataDir)
+
+	if dataDir == "" {
+		dataDir = DefaultDataDir
 	}
 
 	store := &XDBStore{
-		DefaultDataDir: dataDir,
-		hashKey:        hashKey,
+		DataDir: dataDir,
+		hashKey: hashKey,
 	}
 
 	if !dirExists(dataDir) {
 		//Write default data dir
-		if err := os.MkdirAll(store.DefaultDataDir, os.ModePerm); err != nil {
+		if err := os.MkdirAll(store.DataDir, os.ModePerm); err != nil {
 			panic(err)
 		}
 	}
@@ -40,9 +50,12 @@ func NewXDBStore(dataDir string, hashKey string) *XDBStore {
 	return store
 }
 
-// TODO: Init store with existing collections from the data dir
+/*
+*
+init permit a node to attach an existing dir as data store
+*/
 func (s *XDBStore) init() {
-	collectionsFiles, err := os.ReadDir(s.DefaultDataDir)
+	collectionsFiles, err := os.ReadDir(s.DataDir)
 
 	if err != nil {
 		log.Fatalf("Error reading collections directory: %v", err)
@@ -54,12 +67,23 @@ func (s *XDBStore) init() {
 		if err != nil {
 			panic(err)
 		}
+		//TODO Init indexes from the file
 		s.collections = append(s.collections, *NewCollection(collectionName))
 	}
 }
 
+func (s *XDBStore) CreateCollection(name string) {
+	for _, collection := range s.collections {
+		if collection.name == name {
+			log.Fatalf("Collection '%s' already exists", name)
+			return
+		}
+	}
+	//TODO: create collection files (index/data)
+}
+
 func (s *XDBStore) Has(collection string) bool {
-	_, err := os.Stat(s.DefaultDataDir + "/" + s.getCollectionHash(collection))
+	_, err := os.Stat(s.DataDir + "/" + s.getCollectionHash(collection))
 	if err != nil && errors.Is(err, os.ErrNotExist) {
 		return false
 	}
@@ -67,7 +91,7 @@ func (s *XDBStore) Has(collection string) bool {
 }
 
 func (s *XDBStore) Get(collection string) ([]byte, error) {
-	file, err := os.Open(s.DefaultDataDir + "/" + s.getCollectionHash(collection))
+	file, err := os.Open(s.DataDir + "/" + s.getCollectionHash(collection))
 	defer file.Close()
 
 	if err != nil {
@@ -96,7 +120,7 @@ func (s *XDBStore) Get(collection string) ([]byte, error) {
 }
 
 func (s *XDBStore) Clear() error {
-	return os.RemoveAll(s.DefaultDataDir)
+	return os.RemoveAll(s.DataDir)
 }
 
 func (s *XDBStore) Save(collection string, b []byte) (bool, error) {
@@ -158,7 +182,7 @@ func (s *XDBStore) getCollectionHash(collection string) string {
 }
 
 func (s *XDBStore) getFullPathWithHash(collection string) string {
-	return s.DefaultDataDir + "/" + s.getCollectionHash(collection)
+	return s.DataDir + "/" + s.getCollectionHash(collection)
 }
 
 func dirExists(dirPath string) bool {

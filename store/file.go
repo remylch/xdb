@@ -6,8 +6,6 @@ type File interface {
 	Content() io.Reader
 }
 
-type XDBIndexFile struct {
-}
+type XDBIndexFile io.Reader
 
-type XDBFile struct {
-}
+type XDBFile io.Reader

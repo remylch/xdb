@@ -14,24 +14,21 @@ import (
 )
 
 type ServerOpts struct {
-	DataDir        string
-	HashKey        string
 	Transport      Transport
 	BootstrapNodes []string
+	store          *store.XDBStore
 }
 
 type Server struct {
 	ServerOpts
 	peerLock sync.Mutex
 	peers    map[string]Peer
-	store    *store.XDBStore
 	quitch   chan struct{}
 }
 
 func NewServer(opts ServerOpts) *Server {
 	return &Server{
 		ServerOpts: opts,
-		store:      store.NewXDBStore(opts.DataDir, opts.HashKey),
 		quitch:     make(chan struct{}),
 		peers:      make(map[string]Peer),
 	}

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"xdb/shared"
+	"xdb/store"
 )
 
 // message sent from a client to one of the servers
@@ -68,7 +69,7 @@ func SendTestMessage(s *Server, collection string) {
 	}()
 }
 
-func MakeServer(dataDir, listenAddress string, nodes ...string) *Server {
+func MakeServer(listenAddress string, store *store.XDBStore, nodes ...string) *Server {
 	tcpOpts := TCPTransportOptions{
 		ListenAddr: listenAddress,
 		ShakeHands: DefaultHandshake,
@@ -76,7 +77,7 @@ func MakeServer(dataDir, listenAddress string, nodes ...string) *Server {
 	tcpTransport := NewTCPTransport(tcpOpts)
 
 	opts := ServerOpts{
-		DataDir:        dataDir,
+		store:          store,
 		Transport:      tcpTransport,
 		BootstrapNodes: nodes,
 	}

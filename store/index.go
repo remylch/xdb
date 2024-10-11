@@ -15,7 +15,7 @@ type Index struct {
 	Name string
 }
 
-func NewIndex(name string) (*Index, error) {
+func CreateIndex(name string) (*Index, error) {
 	indexId := uuid.New()
 	indexName := "index-" + indexId.String() + "-" + name
 

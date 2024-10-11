@@ -1,47 +1,36 @@
 package main
 
 import (
-	"encoding/json"
 	env "github.com/joho/godotenv"
 	"log"
-	"net/http"
 	"os"
 	"strings"
-	"xdb/p2p"
 )
 
-func healthcheckHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
-}
-
-func startHttpServer() {
-	http.HandleFunc("/health", healthcheckHandler)
-	_ = http.ListenAndServe(os.Getenv("HTTP_ADDR"), nil)
-}
-
 func main() {
-	err := env.Load()
-
-	if err != nil {
+	if err := env.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
-	if os.Getenv("HASH_KEY") == "" {
+	hashKey := os.Getenv("HASH_KEY")
+
+	//TODO: add validation on
+	if hashKey == "" {
 		panic("HASH_KEY environment variable is required")
 	}
 
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 
-	peers := strings.Split(os.Getenv("BOOTSTRAP_NODES"), ",")
-	s1 := p2p.MakeServer("./data/s1ddir", os.Getenv("NODE_ADDR"), peers...)
+	node := newNode(NodeOpts{
+		peers:    strings.Split(os.Getenv("BOOTSTRAP_NODES"), ","),
+		hashKey:  os.Getenv("HASH_KEY"),
+		dataDir:  os.Getenv("DATA_DIR"),
+		nodeAddr: os.Getenv("NODE_ADDR"),
+		apiAddr:  os.Getenv("API_ADDR"),
+	})
 
-	go startHttpServer()
-
-	s1.Start()
-
-	select {}
+	node.run()
 
 	//s2 := p2p.MakeServer("./data/s2ddir", ":4000", ":3000")
 	//s3 := p2p.MakeServer("./data/s3ddir", ":6000", ":4000", ":3000")

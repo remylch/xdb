@@ -10,6 +10,10 @@ import (
 	"xdb/store"
 )
 
+const (
+	DefaultServerAddr = ":3000"
+)
+
 // message sent from a client to one of the servers
 func SendTestMessage(s *Server, collection string) {
 	go func() {
@@ -70,6 +74,10 @@ func SendTestMessage(s *Server, collection string) {
 }
 
 func MakeServer(listenAddress string, store *store.XDBStore, nodes ...string) *Server {
+	if listenAddress == "" {
+		listenAddress = DefaultServerAddr
+	}
+
 	tcpOpts := TCPTransportOptions{
 		ListenAddr: listenAddress,
 		ShakeHands: DefaultHandshake,

@@ -7,12 +7,20 @@ import (
 	"xdb/store"
 )
 
+const (
+	DefaultAPIAddr = ":8080"
+)
+
 type NodeHttpServer struct {
 	store *store.XDBStore
 	addr  string
 }
 
 func NewHttpServer(store *store.XDBStore, addr string) *NodeHttpServer {
+	if addr == "" {
+		addr = DefaultAPIAddr
+	}
+
 	return &NodeHttpServer{
 		store: store,
 		addr:  addr,

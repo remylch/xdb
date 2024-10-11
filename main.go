@@ -12,13 +12,6 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	hashKey := os.Getenv("HASH_KEY")
-
-	//TODO: add validation on
-	if hashKey == "" {
-		panic("HASH_KEY environment variable is required")
-	}
-
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 

@@ -1,15 +1,16 @@
 package p2p
 
 import (
-	"os"
 	"testing"
 	"time"
+	"xdb/store"
 )
 
 func TestSaveAndRetrieveCollectionData(t *testing.T) {
-	os.Setenv("HASH_KEY", "your-32-byte-secret-key-here!!!!")
+	s := store.NewXDBStore(store.DefaultTestDataDir, "your-32-byte-secret-key-here!!!!")
 	collection := "test"
-	s1 := MakeServer("./datadir", ":3000")
+	s.CreateCollection(collection)
+	s1 := MakeServer(DefaultServerAddr, s)
 	go s1.Start()
 
 	var data []byte

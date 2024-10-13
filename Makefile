@@ -2,9 +2,9 @@ run:
 	go run .
 
 build:
-	@go build -o bin/node main.go
+	@go build -o bin/node *.go
 
-test:
+tests:
 	HASH_KEY=your-32-byte-secret-key-here!!!! go test ./... -count=1 -timeout 30s
 
 build-local-graph:

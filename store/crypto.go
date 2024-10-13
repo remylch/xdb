@@ -27,6 +27,10 @@ func Encrypt(key string, data []byte) ([]byte, error) {
 }
 
 func Decrypt(key string, data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return make([]byte, 0), nil
+	}
+
 	block, err := aes.NewCipher([]byte(key))
 	if err != nil {
 		return nil, err

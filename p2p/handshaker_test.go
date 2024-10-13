@@ -1,11 +1,11 @@
 package p2p
 
 import (
+	"github.com/stretchr/testify/require"
 	"log"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
+	"xdb/store"
 )
 
 func tearDown(s *Server) {
@@ -15,7 +15,8 @@ func tearDown(s *Server) {
 }
 
 func TestClientHandshake(t *testing.T) {
-	s1 := MakeServer("./datadir", ":3000")
+	st := store.NewXDBStore(store.DefaultTestDataDir, "your-32-byte-secret-key-here!!!!")
+	s1 := MakeServer(DefaultServerAddr, st)
 
 	go s1.Start()
 

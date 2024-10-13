@@ -20,7 +20,7 @@ type NodeOpts struct {
 	apiAddr  string
 }
 
-func newNode(opts NodeOpts) *Node {
+func NewNode(opts NodeOpts) *Node {
 	s := store.NewXDBStore(opts.dataDir, opts.hashKey)
 	s1 := p2p.MakeServer(opts.nodeAddr, s, opts.peers...)
 	httpServer := api.NewHttpServer(s, opts.apiAddr)

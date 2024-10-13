@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	DefaultDataDir = "/opt/xdb/data/"
+	DefaultDataDir     = "/opt/xdb/data/"
+	DefaultTestDataDir = "../test/data/"
 )
 
 type XDBStore struct {
@@ -64,8 +65,6 @@ func (s *XDBStore) init() {
 	for _, file := range collectionsFiles {
 		hash := file.Name()
 		collectionName, err := decryptFilename(s.hashKey, hash)
-
-		fmt.Printf("Collection name: %s, Hash: %s\n", collectionName, hash)
 
 		if err != nil {
 			panic(err)
@@ -171,7 +170,7 @@ func (s *XDBStore) Save(collection string, b []byte) (bool, error) {
 		return false, fmt.Errorf("error writing to file: %s", err)
 	}
 
-	log.Printf("[%s : %s bytes written]", collection, b)
+	log.Printf("[%s : %v bytes written]", collection, len(b))
 
 	return true, nil
 }

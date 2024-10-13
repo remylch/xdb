@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
@@ -67,6 +68,31 @@ func TestStoreInitialization(t *testing.T) {
 
 	require.Len(t, s.collections, 1, "store should be initialized with one collection")
 	require.Equal(t, s.collections[0].name, collection, "collection name should be equal to the one created in the test")
+
+	tearDown(s)
+}
+
+func TestCryptoFilename(t *testing.T) {
+	baseFileName := "test"
+	s := NewXDBStore("./specificDataDir", "your-32-byte-secret-key-here!!!!")
+
+	encryptedFileName, err := encryptFilename(s.hashKey, baseFileName)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	res, err := decryptFilename(s.hashKey, encryptedFileName)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if baseFileName != res {
+		t.Errorf("decrypted filename is not equal to the original filename has: %s, expected: %s", res, baseFileName)
+	}
+
+	fmt.Println(res, baseFileName)
 
 	tearDown(s)
 }

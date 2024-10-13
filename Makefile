@@ -12,5 +12,3 @@ build-local-graph:
 
 start-local-graph:
 	docker compose up
-
-

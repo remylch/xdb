@@ -8,13 +8,13 @@ import (
 type JSON map[string]interface{}
 
 type Collection struct {
-	id        uuid.UUID
+	id        uuid.UUID // Since it's generated at the instantiation of the collection(on node startup) => 2 nodes will have different uuid for the same collection
 	name      string
 	indexes   []Index
 	documents []Document
 }
 
-// Document is a part of the collection.  It's an certain array of bytes into the collection file
+// Document is a part of the collection.  It's a certain array of bytes into the collection file
 type Document struct {
 	XDBId uuid.UUID
 	Data  JSON

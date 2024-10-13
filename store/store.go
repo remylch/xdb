@@ -58,12 +58,15 @@ func (s *XDBStore) init() {
 	collectionsFiles, err := os.ReadDir(s.DataDir)
 
 	if err != nil {
-		log.Fatalf("Error reading collections directory: %v", err)
+		panic(fmt.Sprintf("Error reading collections directory: %v", err))
 	}
 
 	for _, file := range collectionsFiles {
 		hash := file.Name()
 		collectionName, err := decryptFilename(s.hashKey, hash)
+
+		fmt.Printf("Collection name: %s, Hash: %s\n", collectionName, hash)
+
 		if err != nil {
 			panic(err)
 		}
@@ -72,6 +75,7 @@ func (s *XDBStore) init() {
 	}
 }
 
+// CreateCollection creates a new file for the collection with the given name.
 func (s *XDBStore) CreateCollection(name string) {
 	for _, collection := range s.collections {
 		if collection.name == name {
@@ -79,7 +83,14 @@ func (s *XDBStore) CreateCollection(name string) {
 			return
 		}
 	}
-	//TODO: create collection files (index/data)
+	//TODO: create collection index files
+	fullPath := s.getFullPathWithHash(name)
+	if _, err := os.Create(fullPath); err != nil {
+		log.Fatalf("Error creating collection file: %v", err)
+		return
+	}
+	collection := NewCollection(name)
+	s.collections = append(s.collections, *collection)
 }
 
 func (s *XDBStore) Has(collection string) bool {
@@ -125,23 +136,22 @@ func (s *XDBStore) Clear() error {
 
 func (s *XDBStore) Save(collection string, b []byte) (bool, error) {
 	var err error
+
 	fullPath := s.getFullPathWithHash(collection)
 
-	if s.fileExists(collection) {
-		decryptedData, err := s.Get(collection)
+	if !s.fileExists(collection) {
+		return false, fmt.Errorf("collection '%s' does not exist", collection)
+	}
 
-		if err != nil {
-			return false, err
-		}
+	//TODO: Should get the part with a given index to avoid decrypting the whole file
+	decryptedData, err := s.Get(collection)
 
-		if isSameData(decryptedData, b) {
-			return false, nil
-		}
+	if err != nil {
+		return false, err
+	}
 
-	} else {
-		if _, err := os.Create(fullPath); err != nil {
-			return false, err
-		}
+	if isSameData(decryptedData, b) {
+		return false, nil
 	}
 
 	file, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
@@ -161,7 +171,7 @@ func (s *XDBStore) Save(collection string, b []byte) (bool, error) {
 		return false, fmt.Errorf("error writing to file: %s", err)
 	}
 
-	log.Printf("written %s to the disk", b)
+	log.Printf("[%s : %s bytes written]", collection, b)
 
 	return true, nil
 }
@@ -183,6 +193,14 @@ func (s *XDBStore) getCollectionHash(collection string) string {
 
 func (s *XDBStore) getFullPathWithHash(collection string) string {
 	return s.DataDir + "/" + s.getCollectionHash(collection)
+}
+
+func (s *XDBStore) GetCollections() []string {
+	collections := make([]string, len(s.collections))
+	for i, collection := range s.collections {
+		collections[i] = collection.name
+	}
+	return collections
 }
 
 func dirExists(dirPath string) bool {

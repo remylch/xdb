@@ -10,6 +10,7 @@ import (
 type Node struct {
 	httpServer *api.NodeHttpServer
 	tcpServer  *p2p.Server
+	store      *store.XDBStore
 }
 
 type NodeOpts struct {
@@ -26,13 +27,23 @@ func NewNode(opts NodeOpts) *Node {
 	httpServer := api.NewHttpServer(s, opts.apiAddr)
 
 	return &Node{
+		store:      s,
 		httpServer: httpServer,
 		tcpServer:  s1,
 	}
 }
 
 func (n *Node) run() {
-	go n.httpServer.Start()
-	n.tcpServer.Start()
-	select {}
+	go func() {
+		err := n.httpServer.Start()
+		if err != nil {
+			panic(err)
+		}
+	}()
+	go func() {
+		err := n.tcpServer.Start()
+		if err != nil {
+			panic(err)
+		}
+	}()
 }

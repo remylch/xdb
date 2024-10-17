@@ -14,7 +14,7 @@ import (
 
 const (
 	DefaultDataDir     = "/opt/xdb/data/"
-	DefaultTestDataDir = "../test/data/"
+	DefaultTestDataDir = "./test/data/"
 )
 
 type XDBStore struct {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
+	"fmt"
 	"log"
 	"net"
 	"xdb/shared"
@@ -14,11 +15,12 @@ const (
 	DefaultServerAddr = ":3000"
 )
 
-// message sent from a client to one of the servers
+// SendTestMessage send a message from a client to one of the servers
 func SendTestMessage(s *Server, collection string) {
 	go func() {
 		conn, err := net.Dial("tcp", s.Transport.Addr())
 		if err != nil {
+			fmt.Println("Error connecting to server:", err)
 			log.Fatal(err)
 			return
 		}

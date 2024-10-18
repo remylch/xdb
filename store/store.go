@@ -70,7 +70,7 @@ func (s *XDBStore) init() {
 			panic(err)
 		}
 		//TODO Init indexes from the file
-		s.collections = append(s.collections, *NewCollection(collectionName))
+		s.collections = append(s.collections, *newCollection(collectionName))
 	}
 }
 
@@ -84,11 +84,11 @@ func (s *XDBStore) CreateCollection(name string) {
 	}
 	//TODO: create collection index files
 	fullPath := s.getFullPathWithHash(name)
-	if _, err := os.Create(fullPath); err != nil {
+	if err := os.MkdirAll(fullPath, os.ModePerm); err != nil {
 		log.Fatalf("Error creating collection file: %v", err)
 		return
 	}
-	collection := NewCollection(name)
+	collection := newCollection(name)
 	s.collections = append(s.collections, *collection)
 }
 

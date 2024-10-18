@@ -2,35 +2,22 @@ package store
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"regexp"
 )
 
+// TODO: Complete regex
 var (
-	INDEX_RGX = "^index-([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})-([^0-9A-Fa-f])+"
+	INDEX_RGX = "^index-"
 )
 
-type Index struct {
-	Id   uuid.UUID
-	Name string
-}
+type Index string
 
-func CreateIndex(name string) (*Index, error) {
-	indexId := uuid.New()
-	indexName := "index-" + indexId.String() + "-" + name
-
-	match, _ := regexp.MatchString(INDEX_RGX, indexName)
+func CreateIndex(name string) (Index, error) {
+	match, _ := regexp.MatchString(INDEX_RGX, name)
 
 	if !match {
-		return nil, fmt.Errorf("invalid index name: %s", indexName)
+		return "", fmt.Errorf("invalid index name: %s", name)
 	}
 
-	return &Index{
-		Id:   indexId,
-		Name: name,
-	}, nil
-}
-
-func (index Index) GetFullIndexName() string {
-	return fmt.Sprintf("index-%s-%s", index.Id, index.Name)
+	return Index(name), nil
 }

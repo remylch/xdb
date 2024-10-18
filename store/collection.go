@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+
 	"github.com/google/uuid"
 )
 
@@ -20,24 +21,17 @@ type Document struct {
 	Data  JSON
 }
 
-func NewCollection(name string) *Collection {
-	baseIndex := Index{
-		Id:   uuid.UUID{},
-		Name: "id",
-	}
+func newCollection(name string) *Collection {
+
 	return &Collection{
 		id:        uuid.New(),
 		name:      name,
-		indexes:   append(make([]Index, 0), baseIndex),
+		indexes:   make([]Index, 0),
 		documents: make([]Document, 0),
 	}
 }
 
-func (c *Collection) Indexes() []Index {
-	return c.indexes
-}
-
-func (c *Collection) AddDocument(data JSON) uuid.UUID {
+func (c *Collection) addDocument(data JSON) uuid.UUID {
 	docId := uuid.New()
 	c.documents = append(c.documents, Document{
 		XDBId: docId,
@@ -46,7 +40,7 @@ func (c *Collection) AddDocument(data JSON) uuid.UUID {
 	return docId
 }
 
-func (c *Collection) GetDocument(docId uuid.UUID) (Document, error) {
+func (c *Collection) getDocument(docId uuid.UUID) (Document, error) {
 	//TODO: find better way to find the document fast
 	for _, doc := range c.documents {
 		if doc.XDBId == docId {
@@ -57,7 +51,7 @@ func (c *Collection) GetDocument(docId uuid.UUID) (Document, error) {
 	return Document{}, fmt.Errorf("document with id %s not found in collection %s", docId, c.name)
 }
 
-func (c *Collection) Delete(docId uuid.UUID) error {
+func (c *Collection) delete(docId uuid.UUID) error {
 	idx := -1
 
 	for i, doc := range c.documents {

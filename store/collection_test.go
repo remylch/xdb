@@ -1,8 +1,9 @@
 package store
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -28,7 +29,7 @@ var (
 )
 
 func TestNewCollection(t *testing.T) {
-	testCollection := NewCollection("test")
+	testCollection := newCollection("test")
 
 	if testCollection.name != "test" {
 		t.Error("Expected collection name 'test', got", testCollection.name)
@@ -41,15 +42,15 @@ func TestNewCollection(t *testing.T) {
 }
 
 func TestCollection_AddDocument(t *testing.T) {
-	testCollection := NewCollection("test")
-	_ = testCollection.AddDocument(fixture)
+	testCollection := newCollection("test")
+	_ = testCollection.addDocument(fixture)
 	require.Len(t, testCollection.documents, 1, "doc array should have 3 items")
 }
 
 func TestCollection_GetDocument(t *testing.T) {
-	testCollection := NewCollection("test")
-	docId := testCollection.AddDocument(fixture)
-	document, err := testCollection.GetDocument(docId)
+	testCollection := newCollection("test")
+	docId := testCollection.addDocument(fixture)
+	document, err := testCollection.getDocument(docId)
 	if err != nil {
 		t.Errorf("err retrieving document : %v", err)
 	}
@@ -58,11 +59,11 @@ func TestCollection_GetDocument(t *testing.T) {
 }
 
 func TestCollection_DeleteDocument(t *testing.T) {
-	testCollection := NewCollection("test")
-	docId := testCollection.AddDocument(fixture)
+	testCollection := newCollection("test")
+	docId := testCollection.addDocument(fixture)
 	require.Len(t, testCollection.documents, 1, "collection should have 1 document")
-	require.NoError(t, testCollection.Delete(docId), "err deleting document")
-	doc, err := testCollection.GetDocument(docId)
+	require.NoError(t, testCollection.delete(docId), "err deleting document")
+	doc, err := testCollection.getDocument(docId)
 	require.Error(t, err, "collection should not contain the deleted document")
 	require.Equal(t, doc, Document{}, "document should be empty")
 }

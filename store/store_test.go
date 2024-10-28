@@ -12,11 +12,21 @@ func tearDown(s *XDBStore) {
 	s.Clear()
 }
 
+// FIXME
 func TestXDBStore(t *testing.T) {
 	collection := "test"
 	s := NewXDBStore(DefaultTestDataDir, "your-32-byte-secret-key-here!!!!")
+
 	s.CreateCollection(collection)
+
+	isCollectionStored := s.Has(collection)
+
+	if !isCollectionStored {
+		t.Error("collection should have it's directory in the store datadir")
+	}
+
 	input := []byte("hello")
+
 	dataChanged, err := s.Save(collection, input)
 
 	if err != nil {
@@ -25,10 +35,6 @@ func TestXDBStore(t *testing.T) {
 
 	if dataChanged == false {
 		t.Error("data should be changed")
-	}
-
-	if !s.fileExists(collection) {
-		t.Error("file should exists")
 	}
 
 	dataChanged, err = s.Save(collection, input)

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"log"
 	"xdb/store"
 )
@@ -51,7 +52,6 @@ func (s *NodeHttpServer) getCollectionDetailsHandler(c *fiber.Ctx) error {
 	//---------------------------------------------------------------------
 
 	return c.JSON(fiber.Map{
-		"name":    collectionName,
 		"data":    decodedData,
 		"indexes": make([]string, 0), //TODO: handle indexes
 	})
@@ -83,6 +83,11 @@ func (s *NodeHttpServer) getXDBApis(c *fiber.Ctx) error {
 }
 
 func (s *NodeHttpServer) Start() error {
+	s.app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowHeaders: "Origin, Content-Type, Accept",
+		AllowMethods: "GET",
+	}))
 	s.app.Get("/apis", s.getXDBApis)
 	s.app.Get("/health", s.healthcheckHandler)
 	s.app.Get("/collections", s.getCollectionsHandler)

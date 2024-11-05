@@ -6,6 +6,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { Loader } from './component/loader.tsx';
 import { Layout } from './component/layout.tsx';
+import {CollectionPage} from "./pages/collection-page.tsx";
 
 const queryClient = new QueryClient();
 
@@ -17,6 +18,7 @@ createRoot(document.getElementById('root')!).render(
           <Routes>
             <Route path="/" element={<Layout />}>
               <Route path="/" element={<App />} />
+              <Route path="/:collection" element={<CollectionPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

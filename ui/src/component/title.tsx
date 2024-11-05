@@ -6,4 +6,4 @@ interface ITitle {
 }
 
 export const Title: React.FC<PropsWithChildren<ITitle>> = ({children, capitalize}) =>
-  <h1 className={classNames('font-semibold text-4xl text-gray-800 flex items-center', capitalize ? "capitalize" : "normal-case")}>{children}</h1>
+  <h1 className={classNames('font-semibold text-4xl text-gray-800 flex items-center pb-5', capitalize ? "capitalize" : "normal-case")}>{children}</h1>

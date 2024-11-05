@@ -24,4 +24,6 @@ func main() {
 	})
 
 	node.run()
+
+	select {}
 }

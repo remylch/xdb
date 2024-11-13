@@ -28,7 +28,7 @@ func (m *FileDataBlockManager) WriteDataBlock(filepath string, blocks []DataBloc
 	}
 
 	for _, block := range blocks {
-		if _, err := file.Write(block.data); err != nil {
+		if _, err := file.Write(block); err != nil {
 			return fmt.Errorf("error writing to file: %s", err)
 		}
 	}

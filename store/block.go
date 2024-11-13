@@ -2,7 +2,9 @@ package store
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
+
 	"github.com/google/uuid"
 )
 
@@ -11,16 +13,20 @@ const (
 	BlockPadding         = 0x00
 )
 
+var ErrorEmptyData = errors.New("datablock creation cannot be performed with empty data")
+
+/*
+Total header size = 24 bytes
+| uuid = 16 bytes (128 bit)
+| uint32 = 4 bytes
+*/
 type DataBlockHeader struct {
 	dataID   uuid.UUID
 	blockId  uint32
 	totalIdx uint32
 }
 
-type DataBlock struct {
-	header DataBlockHeader
-	data   []byte
-}
+type DataBlock []byte
 
 func newDataBlocks(data []byte) ([]DataBlock, error) {
 	var (
@@ -28,7 +34,9 @@ func newDataBlocks(data []byte) ([]DataBlock, error) {
 		err    error = nil
 	)
 
-	fmt.Println("INPUT", len(data), data)
+	if len(data) == 0 {
+		return blocks, ErrorEmptyData
+	}
 
 	if data, err = CompressData(data); err != nil {
 		return blocks, fmt.Errorf("error compressing data: %s", err)
@@ -36,22 +44,16 @@ func newDataBlocks(data []byte) ([]DataBlock, error) {
 
 	dataLen := len(data)
 	nbBlocks := (dataLen + DefaultDataBlockSize - 24 - 1) / (DefaultDataBlockSize - 24)
-	dataID := uuid.New() // uuid = 16 bytes (128 bit)
+	dataID := uuid.New()
 
 	for i := 0; i < nbBlocks; i++ {
-		dataBlock := DataBlock{
-			header: DataBlockHeader{
-				dataID:   dataID,
-				blockId:  uint32(i),
-				totalIdx: uint32(nbBlocks),
-			},
-			data: make([]byte, DefaultDataBlockSize),
-		}
+		dataBlock := make(DataBlock, DefaultDataBlockSize)
+		blockId := uint32(i)
 
 		//Fill Block header
-		copy(dataBlock.data[:16], dataID[:])
-		binary.LittleEndian.PutUint32(dataBlock.data[16:20], dataBlock.header.blockId)
-		binary.LittleEndian.PutUint32(dataBlock.data[20:24], dataBlock.header.totalIdx)
+		copy(dataBlock[:16], dataID[:])
+		binary.LittleEndian.PutUint32(dataBlock[16:20], blockId)
+		binary.LittleEndian.PutUint32(dataBlock[20:24], uint32(nbBlocks))
 
 		//Fill Block data
 		start := i * (DefaultDataBlockSize - 24)
@@ -61,9 +63,21 @@ func newDataBlocks(data []byte) ([]DataBlock, error) {
 			end = dataLen
 		}
 
-		copy(dataBlock.data[24:], data[start:end])
+		copy(dataBlock[24:], data[start:end])
 
 		blocks = append(blocks, dataBlock)
 	}
 	return blocks, nil
+}
+
+func (db DataBlock) header() DataBlockHeader {
+	dataID, _ := uuid.FromBytes(db[:16])
+	blockId := binary.LittleEndian.Uint32(db[16:20])
+	nbBlocks := binary.LittleEndian.Uint32(db[20:24])
+
+	return DataBlockHeader{
+		dataID:   dataID,
+		blockId:  blockId,
+		totalIdx: nbBlocks,
+	}
 }

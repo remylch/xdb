@@ -15,9 +15,9 @@ func TestNewDataBlocks(t *testing.T) {
 	}{
 		{
 			name:           "Empty input",
-			input:          []byte{},
+			input:          []byte(""),
 			expectedBlocks: 1,
-			expectError:    false,
+			expectError:    true,
 		},
 		{
 			name:           "Small input",
@@ -27,8 +27,8 @@ func TestNewDataBlocks(t *testing.T) {
 		},
 		{
 			name:           "Large input",
-			input:          bytes.Repeat([]byte("A"), DefaultDataBlockSize*2),
-			expectedBlocks: 3,
+			input:          bytes.Repeat([]byte("AZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSD"), DefaultDataBlockSize*7000),
+			expectedBlocks: 2,
 			expectError:    false,
 		},
 	}
@@ -36,8 +36,6 @@ func TestNewDataBlocks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			blocks, err := newDataBlocks(tt.input)
-
-			fmt.Println("blocks:", blocks)
 
 			if tt.expectError {
 				if err == nil {
@@ -56,22 +54,27 @@ func TestNewDataBlocks(t *testing.T) {
 			}
 
 			for i, block := range blocks {
-				if block.header.blockId != uint32(i) {
-					t.Errorf("Block %d: Expected blockId %d, but got %d", i, i, block.header.blockId)
+
+				fmt.Println(block)
+
+				header := block.header()
+
+				if header.blockId != uint32(i) {
+					t.Errorf("Block %d: Expected blockId %d, but got %d", i, i, header.blockId)
 				}
 
-				if block.header.totalIdx != uint32(tt.expectedBlocks) {
-					t.Errorf("Block %d: Expected totalIdx %d, but got %d", i, tt.expectedBlocks, block.header.totalIdx)
+				if header.totalIdx != uint32(tt.expectedBlocks) {
+					t.Errorf("Block %d: Expected totalIdx %d, but got %d", i, tt.expectedBlocks, header.totalIdx)
 				}
 
-				if len(block.data) != DefaultDataBlockSize {
-					t.Errorf("Block %d: Expected data length %d, but got %d", i, DefaultDataBlockSize, len(block.data))
+				if len(block) != DefaultDataBlockSize {
+					t.Errorf("Block %d: Expected data length %d, but got %d", i, DefaultDataBlockSize, len(block))
 				}
 			}
 
 			// Check if the last block is padded correctly
 			lastBlock := blocks[len(blocks)-1]
-			lastBlockDataLen := len(bytes.TrimRight(lastBlock.data[24:], string(rune(BlockPadding))))
+			lastBlockDataLen := len(bytes.TrimRight(lastBlock[24:], string(rune(BlockPadding))))
 			if lastBlockDataLen == DefaultDataBlockSize-24 && len(blocks) > 1 {
 				t.Errorf("Last block should be padded, but it's full")
 			}

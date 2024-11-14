@@ -28,7 +28,14 @@ func (m *FileDataBlockManager) WriteDataBlock(filepath string, blocks []DataBloc
 	}
 
 	for _, block := range blocks {
-		if _, err := file.Write(block); err != nil {
+
+		compressedBlock, err := block.compress()
+
+		if err != nil {
+			return err
+		}
+
+		if _, err := file.Write(compressedBlock); err != nil {
 			return fmt.Errorf("error writing to file: %s", err)
 		}
 	}
@@ -38,5 +45,18 @@ func (m *FileDataBlockManager) WriteDataBlock(filepath string, blocks []DataBloc
 
 // TODO: Add query on datablocks, for now read all the blocks from the file
 func (m *FileDataBlockManager) ReadDataBlock(filepath string) ([]DataBlock, error) {
-	return make([]DataBlock, 0), nil
+	fileBytes, err := os.ReadFile(filepath)
+
+	if err != nil {
+		return make([]DataBlock, 0), err
+	}
+
+	//FIXME: we need to decompress before instantiating data blocks
+	dbs, err := newDataBlocks(fileBytes)
+
+	if err != nil {
+		return make([]DataBlock, 0), err
+	}
+
+	return decompressAll(dbs)
 }

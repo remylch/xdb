@@ -3,7 +3,6 @@ package store
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -28,18 +27,12 @@ type DataBlockHeader struct {
 
 type DataBlock []byte
 
+// TODO: Make the header compressed too and extract compress since this function purpose is only to create a datablock not compressed => the compression should come when inserting in the file
 func newDataBlocks(data []byte) ([]DataBlock, error) {
-	var (
-		blocks       = make([]DataBlock, 0)
-		err    error = nil
-	)
+	blocks := make([]DataBlock, 0)
 
 	if len(data) == 0 {
 		return blocks, ErrorEmptyData
-	}
-
-	if data, err = CompressData(data); err != nil {
-		return blocks, fmt.Errorf("error compressing data: %s", err)
 	}
 
 	dataLen := len(data)
@@ -80,4 +73,29 @@ func (db DataBlock) header() DataBlockHeader {
 		blockId:  blockId,
 		totalIdx: nbBlocks,
 	}
+}
+
+func (db DataBlock) compress() (DataBlock, error) {
+	return CompressData(db)
+}
+
+func (db DataBlock) decompress() (DataBlock, error) {
+	return DecompressData(db)
+}
+
+func decompressAll(dbs []DataBlock) ([]DataBlock, error) {
+	decompressedDataBlocks := make([]DataBlock, 0)
+
+	for _, db := range dbs {
+		res, err := db.decompress()
+
+		if err != nil {
+			decompressedDataBlocks = append(decompressedDataBlocks, db)
+			continue
+		}
+
+		decompressedDataBlocks = append(decompressedDataBlocks, res)
+	}
+
+	return decompressedDataBlocks, nil
 }

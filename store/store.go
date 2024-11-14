@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -98,34 +99,32 @@ func (s *XDBStore) Has(collection string) bool {
 	return s.collectionExists(collection)
 }
 
-// FIXME:
-func (s *XDBStore) Get(collection string) ([]byte, error) {
-	file, err := os.Open(s.DataDir + "/" + s.getCollectionHash(collection))
-	defer file.Close()
+func (s *XDBStore) Get(collection string) ([]DataBlock, error) {
+	dataBlocks := make([]DataBlock, 0)
+
+	collectionPath := path.Join(s.DataDir, s.getCollectionHash(collection))
+
+	collectionDir, err := os.ReadDir(collectionPath)
 
 	if err != nil {
-		return nil, err
+		return dataBlocks, fmt.Errorf("unable to read collection < %s > directory", collection)
 	}
 
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return nil, err
+	for _, file := range collectionDir {
+		infos, _ := file.Info()
+		filePath := path.Join(collectionPath, infos.Name())
+
+		newDataBlocks, err := s.dataBlockManager.ReadDataBlock(filePath)
+
+		if err != nil {
+			return dataBlocks, err
+		}
+
+		dataBlocks = append(dataBlocks, newDataBlocks...)
+
 	}
 
-	fileSize := fileInfo.Size()
-	data := make([]byte, fileSize)
-
-	if _, err = file.Read(data); err != nil {
-		return nil, err
-	}
-
-	data, err = Decrypt(s.hashKey, data)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
+	return dataBlocks, nil
 }
 
 func (s *XDBStore) Clear() error {

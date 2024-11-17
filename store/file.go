@@ -9,6 +9,7 @@ import (
 type DataBlockManager interface {
 	WriteDataBlock(filepath string, blocks []DataBlock) error
 	ReadDataBlock(filepath string) ([]DataBlock, error)
+	mergeCorrelatedDataBlocks(blocks []DataBlock) []byte
 }
 
 // FileDataBlockManager is an implementation of DataBlockManager that uses the filesystem.
@@ -43,7 +44,6 @@ func (m *FileDataBlockManager) WriteDataBlock(filepath string, blocks []DataBloc
 	return nil
 }
 
-// TODO: Add query on datablocks, for now read all the blocks from the file
 func (m *FileDataBlockManager) ReadDataBlock(filepath string) ([]DataBlock, error) {
 	fileBytes, err := os.ReadFile(filepath)
 
@@ -51,7 +51,6 @@ func (m *FileDataBlockManager) ReadDataBlock(filepath string) ([]DataBlock, erro
 		return make([]DataBlock, 0), err
 	}
 
-	//FIXME: we need to decompress before instantiating data blocks
 	dbs, err := newDataBlocks(fileBytes)
 
 	if err != nil {
@@ -59,4 +58,14 @@ func (m *FileDataBlockManager) ReadDataBlock(filepath string) ([]DataBlock, erro
 	}
 
 	return decompressAll(dbs)
+}
+
+func (m *FileDataBlockManager) mergeCorrelatedDataBlocks(blocks []DataBlock) []byte {
+	mergedData := make([]byte, 0)
+
+	for _, block := range blocks {
+		mergedData = append(mergedData, block.data()...)
+	}
+
+	return mergedData
 }

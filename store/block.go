@@ -27,7 +27,6 @@ type DataBlockHeader struct {
 
 type DataBlock []byte
 
-// TODO: Make the header compressed too and extract compress since this function purpose is only to create a datablock not compressed => the compression should come when inserting in the file
 func newDataBlocks(data []byte) ([]DataBlock, error) {
 	blocks := make([]DataBlock, 0)
 
@@ -63,6 +62,10 @@ func newDataBlocks(data []byte) ([]DataBlock, error) {
 	return blocks, nil
 }
 
+func (db DataBlock) data() []byte {
+	return db[24:]
+}
+
 func (db DataBlock) header() DataBlockHeader {
 	dataID, _ := uuid.FromBytes(db[:16])
 	blockId := binary.LittleEndian.Uint32(db[16:20])
@@ -76,11 +79,30 @@ func (db DataBlock) header() DataBlockHeader {
 }
 
 func (db DataBlock) compress() (DataBlock, error) {
-	return CompressData(db)
+	dataBlockDataCompressed, err := CompressData(db[24:])
+
+	if err != nil {
+		return nil, err
+	}
+
+	compressedDataBlock := make(DataBlock, 24+len(dataBlockDataCompressed))
+	copy(compressedDataBlock[:24], db[:24])
+	copy(compressedDataBlock[24:], dataBlockDataCompressed)
+
+	return compressedDataBlock, nil
 }
 
 func (db DataBlock) decompress() (DataBlock, error) {
-	return DecompressData(db)
+	decompressedData, err := DecompressData(db[24:])
+	if err != nil {
+		return nil, err
+	}
+
+	decompressedBlock := make(DataBlock, 24+len(decompressedData))
+	copy(decompressedBlock[:24], db[:24])
+	copy(decompressedBlock[24:], decompressedData)
+
+	return decompressedBlock, nil
 }
 
 func decompressAll(dbs []DataBlock) ([]DataBlock, error) {

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
 	"strings"
 )
 
@@ -20,6 +19,7 @@ const (
 
 type XDBStore struct {
 	dataBlockManager DataBlockManager
+	queryExecutor    QueryExecutor
 
 	DataDir     string
 	hashKey     string
@@ -37,11 +37,17 @@ func NewXDBStore(dataDir string, hashKey string) *XDBStore {
 		dataDir = DefaultDataDir
 	}
 
+	dataBlockManager := NewFileDataBlockManager()
+
 	store := &XDBStore{
 		DataDir:          dataDir,
 		hashKey:          hashKey,
-		dataBlockManager: NewFileDataBlockManager(),
+		dataBlockManager: dataBlockManager,
 	}
+	//TODO: Improve to remove cross dependencies
+	queryExecutor := NewBaseExecutor(dataBlockManager, dataDir, store.getCollectionHash)
+
+	store.queryExecutor = queryExecutor
 
 	if !dirExists(dataDir) {
 		//Write default data dir
@@ -99,32 +105,17 @@ func (s *XDBStore) Has(collection string) bool {
 	return s.collectionExists(collection)
 }
 
-func (s *XDBStore) Get(collection string) ([]DataBlock, error) {
-	dataBlocks := make([]DataBlock, 0)
+func (s *XDBStore) Get(query string) ([]byte, error) {
+	//TODO: Parse query
+	result := s.queryExecutor.Execute(ReadQuery(query))
 
-	collectionPath := path.Join(s.DataDir, s.getCollectionHash(collection))
-
-	collectionDir, err := os.ReadDir(collectionPath)
+	decryptedData, err := Decrypt(s.hashKey, result.Data)
 
 	if err != nil {
-		return dataBlocks, fmt.Errorf("unable to read collection < %s > directory", collection)
+		return nil, fmt.Errorf("error decrypting data: %v", err)
 	}
 
-	for _, file := range collectionDir {
-		infos, _ := file.Info()
-		filePath := path.Join(collectionPath, infos.Name())
-
-		newDataBlocks, err := s.dataBlockManager.ReadDataBlock(filePath)
-
-		if err != nil {
-			return dataBlocks, err
-		}
-
-		dataBlocks = append(dataBlocks, newDataBlocks...)
-
-	}
-
-	return dataBlocks, nil
+	return decryptedData, nil
 }
 
 func (s *XDBStore) Clear() error {

@@ -3,9 +3,10 @@ package store
 import (
 	"bytes"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func tearDown(s *XDBStore) {

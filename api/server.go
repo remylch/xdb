@@ -2,10 +2,11 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 	"log"
 	"xdb/store"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 const (
@@ -34,26 +35,23 @@ func (s *NodeHttpServer) healthcheckHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"status": "healthy"})
 }
 
-func (s *NodeHttpServer) getCollectionDetailsHandler(c *fiber.Ctx) error {
-	collectionName := c.Params("name")
+func (s *NodeHttpServer) queryData(c *fiber.Ctx) error {
+	query := c.Query("query")
 
-	//TODO: Extract this part to an handler or a service separated from the controller part
-	data, err := s.store.Get(collectionName)
+	data, err := s.store.Get(query)
 
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Collection not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err})
 	}
 
 	var decodedData interface{}
+
 	if err := json.Unmarshal(data, &decodedData); err != nil {
 		decodedData = string(data)
 	}
 
-	//---------------------------------------------------------------------
-
 	return c.JSON(fiber.Map{
-		"data":    decodedData,
-		"indexes": make([]string, 0), //TODO: handle indexes
+		"data": decodedData,
 	})
 }
 
@@ -91,7 +89,7 @@ func (s *NodeHttpServer) Start() error {
 	s.app.Get("/apis", s.getXDBApis)
 	s.app.Get("/health", s.healthcheckHandler)
 	s.app.Get("/collections", s.getCollectionsHandler)
-	s.app.Get("/collections/:name", s.getCollectionDetailsHandler)
+	s.app.Get("/collections/data", s.queryData)
 	log.Println("API listening on ", s.addr)
 	return s.app.Listen(s.addr)
 }

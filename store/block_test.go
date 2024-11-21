@@ -8,28 +8,32 @@ import (
 
 func TestNewDataBlocks(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          []byte
-		expectedBlocks int
-		expectError    bool
+		name              string
+		input             []byte
+		expectedBlocks    int
+		expectError       bool
+		lastBlockDataSize int
 	}{
 		{
-			name:           "Empty input",
-			input:          []byte(""),
-			expectedBlocks: 1,
-			expectError:    true,
+			name:              "Empty input",
+			input:             []byte(""),
+			expectedBlocks:    1,
+			expectError:       true,
+			lastBlockDataSize: 0,
 		},
 		{
-			name:           "Small input",
-			input:          []byte("Hello, World!"),
-			expectedBlocks: 1,
-			expectError:    false,
+			name:              "Small input",
+			input:             []byte("Hello, World!"),
+			expectedBlocks:    1,
+			expectError:       false,
+			lastBlockDataSize: 13,
 		},
 		{
-			name:           "Large input",
-			input:          bytes.Repeat([]byte("AZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSDAZEFIHKQSDLFHJKFSD"), DefaultDataBlockSize*7000),
-			expectedBlocks: 2,
-			expectError:    false,
+			name:              "Large input",
+			input:             bytes.Repeat([]byte("A"), DefaultDataBlockSize*2),
+			expectedBlocks:    3,
+			expectError:       false,
+			lastBlockDataSize: 24 * 2,
 		},
 	}
 
@@ -74,10 +78,15 @@ func TestNewDataBlocks(t *testing.T) {
 
 			// Check if the last block is padded correctly
 			lastBlock := blocks[len(blocks)-1]
-			lastBlockDataLen := len(bytes.TrimRight(lastBlock[24:], string(rune(BlockPadding))))
+			lastBlockDataLen := len(lastBlock.data())
 			if lastBlockDataLen == DefaultDataBlockSize-24 && len(blocks) > 1 {
 				t.Errorf("Last block should be padded, but it's full")
 			}
+
+			if lastBlockDataLen != tt.lastBlockDataSize {
+				t.Errorf("Last block data size: expected %d, but got %d", tt.lastBlockDataSize, lastBlockDataLen)
+			}
+
 		})
 	}
 }

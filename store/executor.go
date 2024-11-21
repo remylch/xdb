@@ -71,6 +71,22 @@ func (executor BaseExecutor) simpleReadQuery(query ReadQuery) QueryResult {
 
 	}
 
+	if len(dataBlocks) > 0 {
+		fmt.Println("datablocks", dataBlocks)
+
+		ttt := dataBlocks[0].data()
+
+		fmt.Println("original", len(ttt), string(ttt))
+
+		decry, err := Decrypt("your-32-byte-secret-key-here!!!!", ttt)
+
+		if err != nil {
+			fmt.Println("eeeeee", err)
+		}
+
+		fmt.Println("decrypted", string(decry))
+	}
+
 	merge := executor.dataBlockManager.mergeCorrelatedDataBlocks(dataBlocks)
 
 	return QueryResult{

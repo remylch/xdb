@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 
@@ -62,10 +63,12 @@ func newDataBlocks(data []byte) ([]DataBlock, error) {
 	return blocks, nil
 }
 
+// Get the data of the DataBlock without header and padding
 func (db DataBlock) data() []byte {
-	return db[24:]
+	return bytes.TrimRight(db[24:], string(rune(BlockPadding)))
 }
 
+// Get the header of the DataBlock (24 first bytes)
 func (db DataBlock) header() DataBlockHeader {
 	dataID, _ := uuid.FromBytes(db[:16])
 	blockId := binary.LittleEndian.Uint32(db[16:20])
@@ -78,8 +81,9 @@ func (db DataBlock) header() DataBlockHeader {
 	}
 }
 
+// Compress the data of the DataBlock but not the header
 func (db DataBlock) compress() (DataBlock, error) {
-	dataBlockDataCompressed, err := CompressData(db[24:])
+	dataBlockDataCompressed, err := CompressData(db.data())
 
 	if err != nil {
 		return nil, err
@@ -92,8 +96,9 @@ func (db DataBlock) compress() (DataBlock, error) {
 	return compressedDataBlock, nil
 }
 
+// Decompress the data of the DataBlock but not the header
 func (db DataBlock) decompress() (DataBlock, error) {
-	decompressedData, err := DecompressData(db[24:])
+	decompressedData, err := DecompressData(db.data())
 	if err != nil {
 		return nil, err
 	}

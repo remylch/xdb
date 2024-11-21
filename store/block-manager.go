@@ -12,15 +12,15 @@ type DataBlockManager interface {
 	mergeCorrelatedDataBlocks(blocks []DataBlock) []byte
 }
 
-// FileDataBlockManager is an implementation of DataBlockManager that uses the filesystem.
-type FileDataBlockManager struct{}
+// DefaultDataBlockManager is an implementation of DataBlockManager that uses the filesystem.
+type DefaultDataBlockManager struct{}
 
-// NewFileDataBlockManager creates a new FileDataBlockManager.
-func NewFileDataBlockManager() *FileDataBlockManager {
-	return &FileDataBlockManager{}
+// NewFileDataBlockManager creates a new DefaultDataBlockManager.
+func NewFileDataBlockManager() *DefaultDataBlockManager {
+	return &DefaultDataBlockManager{}
 }
 
-func (m *FileDataBlockManager) WriteDataBlock(filepath string, blocks []DataBlock) error {
+func (m *DefaultDataBlockManager) WriteDataBlock(filepath string, blocks []DataBlock) error {
 	file, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	defer file.Close()
 
@@ -44,7 +44,7 @@ func (m *FileDataBlockManager) WriteDataBlock(filepath string, blocks []DataBloc
 	return nil
 }
 
-func (m *FileDataBlockManager) ReadDataBlock(filepath string) ([]DataBlock, error) {
+func (m *DefaultDataBlockManager) ReadDataBlock(filepath string) ([]DataBlock, error) {
 	fileBytes, err := os.ReadFile(filepath)
 
 	if err != nil {
@@ -60,7 +60,7 @@ func (m *FileDataBlockManager) ReadDataBlock(filepath string) ([]DataBlock, erro
 	return decompressAll(dbs)
 }
 
-func (m *FileDataBlockManager) mergeCorrelatedDataBlocks(blocks []DataBlock) []byte {
+func (m *DefaultDataBlockManager) mergeCorrelatedDataBlocks(blocks []DataBlock) []byte {
 	mergedData := make([]byte, 0)
 
 	for _, block := range blocks {

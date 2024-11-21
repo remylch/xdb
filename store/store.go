@@ -97,6 +97,12 @@ func (s *XDBStore) CreateCollection(name string) {
 		log.Fatalf("Error creating collection file: %v", err)
 		return
 	}
+
+	if err := os.WriteFile(fullPath+"/data-1", nil, 0644); err != nil {
+		log.Fatalf("Error creating initial data file for collection %v with error : %v", name, err)
+		return
+	}
+
 	collection := newCollection(name)
 	s.collections = append(s.collections, *collection)
 }

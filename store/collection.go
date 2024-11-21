@@ -22,7 +22,6 @@ type Document struct {
 }
 
 func newCollection(name string) *Collection {
-
 	return &Collection{
 		id:        uuid.New(),
 		name:      name,

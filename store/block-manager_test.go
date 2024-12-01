@@ -1,13 +1,24 @@
 package store
 
 import (
-	"fmt"
-	"github.com/stretchr/testify/assert"
+	"crypto/rand"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDefaultDataBlockManager_ReadDataBlock(t *testing.T) {
-	dbs, _ := newDataBlocks([]byte("Hello world"))
+	smallInput, _ := createBlocksFromBytes([]byte("small input"))
+	smallInput = removePadding(smallInput...)
+
+	pseudoRandomInput := make([]byte, 6700)
+	_, err := rand.Read(pseudoRandomInput)
+	if err != nil {
+		t.Fatalf("Failed to generate random data: %v", err)
+	}
+	
+	sixThousandBytesBlocks, _ := createBlocksFromBytes(pseudoRandomInput)
+	sixThousandBytesBlocks = removePadding(sixThousandBytesBlocks...)
 
 	tests := []struct {
 		name       string
@@ -19,8 +30,14 @@ func TestDefaultDataBlockManager_ReadDataBlock(t *testing.T) {
 		{
 			name:       "One data block in the file",
 			dataFile:   "data-1",
-			dataBlocks: dbs,
-			want:       dbs,
+			dataBlocks: smallInput,
+			want:       smallInput,
+		},
+		{
+			name:       "Two data blocks in the file",
+			dataFile:   "data-1",
+			dataBlocks: sixThousandBytesBlocks,
+			want:       sixThousandBytesBlocks,
 		},
 	}
 	for _, tt := range tests {
@@ -44,30 +61,18 @@ func TestDefaultDataBlockManager_ReadDataBlock(t *testing.T) {
 				return
 			}
 
-			assert.Equalf(t, tt.want, got, "ReadDataBlock(%v)", tt.want)
+			for i := range tt.want {
+				// Compare everything except the compressed size in header
+				if !assert.Equal(t, tt.want[i][:24], got[i][:24], "Header mismatch (except compressed size)") {
+					t.Errorf("Header mismatch in block %d", i)
+				}
+				if !assert.Equal(t, tt.want[i][28:], got[i][28:], "Data mismatch") {
+					t.Errorf("Data mismatch in block %d", i)
+				}
+			}
 		})
 
 		s.Clear()
-	}
-}
-
-func TestDefaultDataBlockManager_WriteDataBlock(t *testing.T) {
-	type args struct {
-		filepath string
-		blocks   []DataBlock
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr assert.ErrorAssertionFunc
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := &DefaultDataBlockManager{}
-			tt.wantErr(t, m.WriteDataBlock(tt.args.filepath, tt.args.blocks), fmt.Sprintf("WriteDataBlock(%v, %v)", tt.args.filepath, tt.args.blocks))
-		})
 	}
 }
 

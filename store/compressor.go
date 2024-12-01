@@ -2,29 +2,35 @@ package store
 
 import (
 	"bytes"
-	"github.com/andybalholm/brotli"
+	"compress/zlib"
+	"io"
 )
 
-func CompressData(data []byte) ([]byte, error) {
+// TODO: Maybe improve this function to use a more efficient compression algorithm
+// TODO: Maybe compress only data if > X bytes (compression algorithm is more efficient on large dataset))
+func CompressData(data []byte) ([]byte, uint32, error) {
 	var buf bytes.Buffer
-	w := brotli.NewWriter(&buf)
+	w := zlib.NewWriter(&buf)
 	_, err := w.Write(data)
-
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-
-	if err = w.Close(); err != nil {
-		return nil, err
+	err = w.Close()
+	if err != nil {
+		return nil, 0, err
 	}
-
-	return buf.Bytes(), nil
+	return buf.Bytes(), uint32(len(buf.Bytes())), nil
 }
 
 func DecompressData(compressedData []byte) ([]byte, error) {
-	r := brotli.NewReader(bytes.NewReader(compressedData))
+	r, err := zlib.NewReader(bytes.NewReader(compressedData))
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
 	var buf bytes.Buffer
-	_, err := buf.ReadFrom(r)
+	_, err = io.Copy(&buf, r)
 	if err != nil {
 		return nil, err
 	}

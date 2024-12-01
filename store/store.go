@@ -144,7 +144,7 @@ func (s *XDBStore) Save(collection string, b []byte) (bool, error) {
 		return false, err
 	}
 
-	if dataBlocks, err = newDataBlocks(b); err != nil {
+	if dataBlocks, err = createBlocksFromBytes(b); err != nil {
 		return false, err
 	}
 

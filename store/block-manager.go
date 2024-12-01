@@ -29,7 +29,6 @@ func (m *DefaultDataBlockManager) WriteDataBlock(filepath string, blocks []DataB
 	}
 
 	for _, block := range blocks {
-
 		compressedBlock, err := block.compress()
 
 		if err != nil {
@@ -51,15 +50,24 @@ func (m *DefaultDataBlockManager) ReadDataBlock(filepath string) ([]DataBlock, e
 		return make([]DataBlock, 0), err
 	}
 
-	dbs, err := newDataBlocks(fileBytes)
+	dbs, err := readBlocksFromBytes(fileBytes)
 
 	if err != nil {
 		return make([]DataBlock, 0), err
 	}
 
-	return decompressAll(dbs)
+	dbs = removePadding(dbs...)
+
+	decompressed, err := decompressAll(dbs)
+
+	if err != nil {
+		return make([]DataBlock, 0), err
+	}
+
+	return decompressed, nil
 }
 
+// TODO: Add test cases for this function
 func (m *DefaultDataBlockManager) mergeCorrelatedDataBlocks(blocks []DataBlock) []byte {
 	mergedData := make([]byte, 0)
 

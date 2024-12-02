@@ -5,7 +5,7 @@ build:
 	@go build -o bin/node *.go
 
 tests:
-	HASH_KEY=your-32-byte-secret-key-here!!!! go test ./... -count=1 -timeout 30s
+	go test ./... -count=1 -timeout 30s
 
 build-local-graph:
 	docker compose build

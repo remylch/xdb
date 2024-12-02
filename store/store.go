@@ -13,11 +13,14 @@ import (
 )
 
 const (
-	DefaultDataDir     = "/opt/xdb/data/"
-	DefaultTestDataDir = "./test/data/"
+	DefaultDataDir     = "/opt/xdb/"
+	DefaultTestDataDir = "./test/"
 )
 
 type XDBStore struct {
+	dataBlockManager DataBlockManager
+	queryExecutor    QueryExecutor
+
 	DataDir     string
 	hashKey     string
 	collections []Collection
@@ -34,10 +37,17 @@ func NewXDBStore(dataDir string, hashKey string) *XDBStore {
 		dataDir = DefaultDataDir
 	}
 
+	dataBlockManager := NewFileDataBlockManager()
+
 	store := &XDBStore{
-		DataDir: dataDir,
-		hashKey: hashKey,
+		DataDir:          dataDir,
+		hashKey:          hashKey,
+		dataBlockManager: dataBlockManager,
 	}
+	//TODO: Improve to remove cross dependencies
+	queryExecutor := NewBaseExecutor(dataBlockManager, dataDir, store.getCollectionHash)
+
+	store.queryExecutor = queryExecutor
 
 	if !dirExists(dataDir) {
 		//Write default data dir
@@ -51,26 +61,25 @@ func NewXDBStore(dataDir string, hashKey string) *XDBStore {
 	return store
 }
 
-/*
-*
-init permit a node to attach an existing dir as data store
-*/
+// init permit a node to attach an existing dir as data store
 func (s *XDBStore) init() {
-	collectionsFiles, err := os.ReadDir(s.DataDir)
+	dirEntries, err := os.ReadDir(s.DataDir)
 
 	if err != nil {
 		panic(fmt.Sprintf("Error reading collections directory: %v", err))
 	}
 
-	for _, file := range collectionsFiles {
-		hash := file.Name()
-		collectionName, err := decryptFilename(s.hashKey, hash)
+	for _, dir := range dirEntries {
+		if dir.IsDir() {
+			collectionName, err := decryptFilename(s.hashKey, dir.Name())
 
-		if err != nil {
-			panic(err)
+			if err != nil {
+				panic(err)
+			}
+
+			//TODO Init indexes from the file
+			s.collections = append(s.collections, *newCollection(collectionName))
 		}
-		//TODO Init indexes from the file
-		s.collections = append(s.collections, *newCollection(collectionName))
 	}
 }
 
@@ -88,45 +97,31 @@ func (s *XDBStore) CreateCollection(name string) {
 		log.Fatalf("Error creating collection file: %v", err)
 		return
 	}
+
+	if err := os.WriteFile(fullPath+"/data-1", nil, 0644); err != nil {
+		log.Fatalf("Error creating initial data file for collection %v with error : %v", name, err)
+		return
+	}
+
 	collection := newCollection(name)
 	s.collections = append(s.collections, *collection)
 }
 
 func (s *XDBStore) Has(collection string) bool {
-	_, err := os.Stat(s.DataDir + "/" + s.getCollectionHash(collection))
-	if err != nil && errors.Is(err, os.ErrNotExist) {
-		return false
-	}
-	return true
+	return s.collectionExists(collection)
 }
 
-func (s *XDBStore) Get(collection string) ([]byte, error) {
-	file, err := os.Open(s.DataDir + "/" + s.getCollectionHash(collection))
-	defer file.Close()
+func (s *XDBStore) Get(query string) ([]byte, error) {
+	//TODO: Parse query
+	result := s.queryExecutor.Execute(ReadQuery(query))
+
+	decryptedData, err := Decrypt(s.hashKey, result.Data)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error decrypting data: %v", err)
 	}
 
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	fileSize := fileInfo.Size()
-	data := make([]byte, fileSize)
-
-	if _, err = file.Read(data); err != nil {
-		return nil, err
-	}
-
-	data, err = Decrypt(s.hashKey, data)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
+	return decryptedData, nil
 }
 
 func (s *XDBStore) Clear() error {
@@ -134,31 +129,14 @@ func (s *XDBStore) Clear() error {
 }
 
 func (s *XDBStore) Save(collection string, b []byte) (bool, error) {
-	var err error
-
-	fullPath := s.getFullPathWithHash(collection)
-
-	if !s.fileExists(collection) {
+	if !s.collectionExists(collection) {
 		return false, fmt.Errorf("collection '%s' does not exist", collection)
 	}
 
-	//TODO: Should get the part with a given index to avoid decrypting the whole file
-	decryptedData, err := s.Get(collection)
-
-	if err != nil {
-		return false, err
-	}
-
-	if isSameData(decryptedData, b) {
-		return false, nil
-	}
-
-	file, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	defer file.Close()
-
-	if err != nil {
-		return false, err
-	}
+	var (
+		dataBlocks []DataBlock
+		err        error = nil
+	)
 
 	b, err = Encrypt(s.hashKey, b)
 
@@ -166,19 +144,25 @@ func (s *XDBStore) Save(collection string, b []byte) (bool, error) {
 		return false, err
 	}
 
-	if _, err := file.Write(b); err != nil {
-		return false, fmt.Errorf("error writing to file: %s", err)
+	if dataBlocks, err = createBlocksFromBytes(b); err != nil {
+		return false, err
 	}
 
-	log.Printf("[%s : %v bytes written]", collection, len(b))
+	//TODO: Save the datablock inside a file (how to choose/create it ?) then assign that datablock to an index
+	filepath := s.getFileToWriteIn(collection)
 
+	if err = s.dataBlockManager.WriteDataBlock(filepath, dataBlocks); err != nil {
+		return false, err
+	}
+
+	log.Printf("[%s : %v bytes written (%v blocks)]", collection, len(b), len(dataBlocks))
 	return true, nil
 }
 
-func (s *XDBStore) fileExists(collection string) bool {
-	filePath := s.getFullPathWithHash(collection)
-	_, err := os.Stat(filePath)
-	return !os.IsNotExist(err)
+func (s *XDBStore) collectionExists(collection string) bool {
+	dirPath := s.getFullPathWithHash(collection)
+	info, err := os.Stat(dirPath)
+	return !os.IsNotExist(err) && info.IsDir()
 }
 
 func (s *XDBStore) getCollectionHash(collection string) string {
@@ -200,6 +184,11 @@ func (s *XDBStore) GetCollections() []string {
 		collections[i] = collection.name
 	}
 	return collections
+}
+
+// TODO: put X data blocks per file. => find last file to append to or create a new one
+func (s *XDBStore) getFileToWriteIn(collection string) string {
+	return s.getFullPathWithHash(collection) + "/data-1"
 }
 
 func dirExists(dirPath string) bool {

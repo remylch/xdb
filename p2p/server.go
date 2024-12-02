@@ -111,12 +111,12 @@ func (s *Server) Retrieve(collection string) []byte {
 		log.Printf("collection [%s] does not exist", collection)
 		return nil
 	}
-	data, err := s.store.Get(collection)
+	res, err := s.store.Get(collection)
 	if err != nil {
 		log.Printf("[%s] Error retrieving data from local collection [%s]: %v", s.Transport.Addr(), collection, err)
 		return nil
 	}
-	return data
+	return res
 }
 
 func (s *Server) bootstrapNetwork() {

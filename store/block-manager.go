@@ -67,7 +67,6 @@ func (m *DefaultDataBlockManager) ReadDataBlock(filepath string) ([]DataBlock, e
 	return decompressed, nil
 }
 
-// TODO: Add test cases for this function
 func (m *DefaultDataBlockManager) mergeCorrelatedDataBlocks(blocks []DataBlock) []byte {
 	mergedData := make([]byte, 0)
 

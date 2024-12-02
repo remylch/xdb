@@ -16,7 +16,7 @@ func TestDefaultDataBlockManager_ReadDataBlock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to generate random data: %v", err)
 	}
-	
+
 	sixThousandBytesBlocks, _ := createBlocksFromBytes(pseudoRandomInput)
 	sixThousandBytesBlocks = removePadding(sixThousandBytesBlocks...)
 
@@ -77,20 +77,29 @@ func TestDefaultDataBlockManager_ReadDataBlock(t *testing.T) {
 }
 
 func TestDefaultDataBlockManager_mergeCorrelatedDataBlocks(t *testing.T) {
-	type args struct {
-		blocks []DataBlock
+
+	pseudoRandomInput := make([]byte, 6700)
+	_, err := rand.Read(pseudoRandomInput)
+	if err != nil {
+		t.Fatalf("Failed to generate random data: %v", err)
 	}
+
 	tests := []struct {
-		name string
-		args args
-		want []byte
+		name  string
+		input []byte
 	}{
-		// TODO: Add test cases.
+		{
+			name:  "Two block merge",
+			input: pseudoRandomInput,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &DefaultDataBlockManager{}
-			assert.Equalf(t, tt.want, m.mergeCorrelatedDataBlocks(tt.args.blocks), "mergeCorrelatedDataBlocks(%v)", tt.args.blocks)
+
+			sixThousandBytesBlocks, _ := createBlocksFromBytes(pseudoRandomInput)
+
+			assert.Equalf(t, tt.input, m.mergeCorrelatedDataBlocks(sixThousandBytesBlocks), "mergeCorrelatedDataBlocks(%v)")
 		})
 	}
 }

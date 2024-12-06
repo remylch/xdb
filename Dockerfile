@@ -14,11 +14,11 @@ RUN go mod download
 COPY . .
 
 # Build the Go app
-RUN go build -o main .
+RUN go build -o ./cmd/node/main .
 
 # Expose port 8080 to the outside world
 EXPOSE 3000
 EXPOSE 8080
 
 # Command to run the executable
-CMD ["./main"]
+CMD ["./cmd/node/main"]

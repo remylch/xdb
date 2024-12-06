@@ -3,7 +3,7 @@ package p2p
 import (
 	"testing"
 	"time"
-	"xdb/store"
+	"xdb/internal/store"
 )
 
 func TestSaveAndRetrieveCollectionData(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"xdb/shared"
+	"xdb/internal/shared"
 )
 
 // HandshakeFunc is the function that handles the handshake between two nodes.

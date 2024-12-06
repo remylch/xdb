@@ -1,0 +1,13 @@
+[secret]
+hashKey = "your-32-byte-secret-key-here!!!!"
+
+[server]
+nodeAddr = ":3000"
+apiAddr = ":8080"
+bootstrapNodes = []
+
+[storage]
+dataDir = "./data/s1ddir"
+
+[log]
+logDir = "./log/"

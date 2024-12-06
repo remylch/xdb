@@ -1,11 +1,12 @@
 package p2p
 
 import (
-	"github.com/stretchr/testify/require"
 	"log"
 	"testing"
 	"time"
-	"xdb/store"
+	"xdb/internal/store"
+
+	"github.com/stretchr/testify/require"
 )
 
 func tearDown(s *Server) {

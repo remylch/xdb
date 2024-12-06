@@ -2,8 +2,8 @@ package main
 
 import (
 	"xdb/api"
-	"xdb/p2p"
-	"xdb/store"
+	"xdb/internal/p2p"
+	"xdb/internal/store"
 )
 
 // A Node represents an instance of the db running on the network

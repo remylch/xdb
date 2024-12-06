@@ -1,9 +1,10 @@
 package p2p
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
-	"xdb/shared"
+	"xdb/internal/shared"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestPeerDefinition(t *testing.T) {

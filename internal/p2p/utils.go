@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"xdb/shared"
-	"xdb/store"
+	"xdb/internal/shared"
+	"xdb/internal/store"
 )
 
 const (

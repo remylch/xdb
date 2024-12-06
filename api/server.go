@@ -3,7 +3,7 @@ package api
 import (
 	"encoding/json"
 	"log"
-	"xdb/store"
+	"xdb/internal/store"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"

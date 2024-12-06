@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 	"time"
-	"xdb/p2p"
-	"xdb/store"
+	"xdb/internal/p2p"
+	"xdb/internal/store"
 )
 
 const (

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"xdb/shared"
+	"xdb/internal/shared"
 )
 
 type Peer interface {

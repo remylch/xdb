@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	DefaultDataDir     = "/opt/xdb/"
+	DefaultDataDir     = "/opt/xdb/internal"
 	DefaultTestDataDir = "./test/"
 )
 

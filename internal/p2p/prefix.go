@@ -8,7 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
-	"xdb/shared"
+	"xdb/internal/shared"
 )
 
 func PrefixedLengthMessage(msg shared.Message) (shared.ByteSlice, shared.ByteSlice, error) {

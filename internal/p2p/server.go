@@ -9,8 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"xdb/shared"
-	"xdb/store"
+	"xdb/internal/shared"
+	"xdb/internal/store"
 )
 
 type ServerOpts struct {

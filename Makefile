@@ -1,8 +1,8 @@
 run:
-	go run .
+	go run ./cmd/node/ -f ./config.toml
 
 build:
-	@go build -o bin/node *.go
+	go build -o bin/node ./cmd/node
 
 tests:
 	go test ./... -count=1 -timeout 30s

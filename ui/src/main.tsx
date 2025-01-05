@@ -6,7 +6,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { Loader } from './component/loader.tsx';
 import { Layout } from './component/layout.tsx';
-import {CollectionPage} from "./pages/collection-page.tsx";
+import {CollectionPage} from "./pages/collectionPage.tsx";
 
 const queryClient = new QueryClient();
 

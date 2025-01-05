@@ -84,27 +84,25 @@ func (s *XDBStore) init() {
 }
 
 // CreateCollection creates a new file for the collection with the given name.
-func (s *XDBStore) CreateCollection(name string) {
+func (s *XDBStore) CreateCollection(name string) error {
 	for _, collection := range s.collections {
 		if collection.name == name {
-			log.Fatalf("Collection '%s' already exists", name)
-			return
+			return fmt.Errorf("collection '%s' already exists\n", name)
 		}
 	}
 	//TODO: create collection index files
 	fullPath := s.getFullPathWithHash(name)
 	if err := os.MkdirAll(fullPath, os.ModePerm); err != nil {
-		log.Fatalf("Error creating collection file: %v", err)
-		return
+		return fmt.Errorf("error creating collection file: %v\n", err)
 	}
 
 	if err := os.WriteFile(fullPath+"/data-1", nil, 0644); err != nil {
-		log.Fatalf("Error creating initial data file for collection %v with error : %v", name, err)
-		return
+		return fmt.Errorf("error creating initial data file for collection %v with error : %v\n", name, err)
 	}
 
 	collection := newCollection(name)
 	s.collections = append(s.collections, *collection)
+	return nil
 }
 
 func (s *XDBStore) Has(collection string) bool {

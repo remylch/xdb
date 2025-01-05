@@ -58,7 +58,6 @@ func (s *NodeHttpServer) queryData(c *fiber.Ctx) error {
 func (s *NodeHttpServer) getCollectionsHandler(c *fiber.Ctx) error {
 	collections := s.store.GetCollections()
 	return c.JSON(fiber.Map{
-		"location":    s.store.DataDir,
 		"collections": collections,
 	})
 }
@@ -80,6 +79,20 @@ func (s *NodeHttpServer) getXDBApis(c *fiber.Ctx) error {
 	})
 }
 
+func (s *NodeHttpServer) createCollectionAPI(c *fiber.Ctx) error {
+	name := c.Query("name")
+	if name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Missing collection name"})
+	}
+
+	if err := s.store.CreateCollection(name); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	c.Status(fiber.StatusCreated)
+	return nil
+}
+
 func (s *NodeHttpServer) Start() error {
 	s.app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
@@ -88,8 +101,12 @@ func (s *NodeHttpServer) Start() error {
 	}))
 	s.app.Get("/apis", s.getXDBApis)
 	s.app.Get("/health", s.healthcheckHandler)
+
+	//Collections API
+	s.app.Post("/collections", s.createCollectionAPI)
 	s.app.Get("/collections", s.getCollectionsHandler)
 	s.app.Get("/collections/data", s.queryData)
+
 	log.Println("API listening on ", s.addr)
 	return s.app.Listen(s.addr)
 }

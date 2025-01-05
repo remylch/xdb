@@ -12,7 +12,6 @@ export const useCollections = () => {
   );
 
   return {
-        location: data?.location,
         collections: data?.collections ?? [],
         isLoading: isFetching || isLoading,
         error,

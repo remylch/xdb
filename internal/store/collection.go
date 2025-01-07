@@ -7,19 +7,21 @@ import (
 type JSON map[string]interface{}
 
 type Collection struct {
-	id      uuid.UUID // FIXME: Since it's generated at the instantiation of the collection(on node startup) => 2 nodes will have different uuid for the same collection
-	name    string
-	indexes []Index
+	Id      uuid.UUID `json:"id"` // FIXME: Since it's generated at the instantiation of the collection(on node startup) => 2 nodes will have different uuid for the same collection
+	Name    string    `json:"name"`
+	Indexes []Index   `json:"indexes"`
 }
 
 func defaultIndex() Index {
 	return Index("id")
 }
 
-func newCollection(name string) *Collection {
-	return &Collection{
-		id:      uuid.New(),
-		name:    name,
-		indexes: []Index{defaultIndex()},
+func newCollection(name string) Collection {
+	// Make a copy of the name string to ensure no external references
+	nameCopy := string([]byte(name))
+	return Collection{
+		Id:      uuid.New(),
+		Name:    nameCopy,
+		Indexes: []Index{defaultIndex()},
 	}
 }

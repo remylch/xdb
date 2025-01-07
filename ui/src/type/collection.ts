@@ -1,8 +1,11 @@
 export type CollectionsResponse = {
-  collections: string[];
+  collections: Collection[];
 };
 
-export type CollectionData = {
+export type Collection = {
+  id: string;
+  name: string;
   indexes: string[];
-  data: unknown;
-}
+};
+
+export type Data = unknown;

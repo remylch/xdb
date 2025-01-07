@@ -29,11 +29,11 @@ var (
 func TestNewCollection(t *testing.T) {
 	testCollection := newCollection("test")
 
-	if testCollection.name != "test" {
-		t.Error("Expected collection name 'test', got", testCollection.name)
+	if testCollection.Name != "test" {
+		t.Error("Expected collection name 'test', got", testCollection.Name)
 	}
 
-	if len(testCollection.indexes) == 0 {
+	if len(testCollection.Indexes) == 0 {
 		t.Error("Expected at least one index with id in the collection")
 	}
 

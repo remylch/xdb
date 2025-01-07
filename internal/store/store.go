@@ -1,7 +1,6 @@
 package store
 
 import (
-	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
@@ -10,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 )
 
 const (
@@ -24,6 +24,8 @@ type XDBStore struct {
 	DataDir     string
 	hashKey     string
 	collections []Collection
+
+	mu sync.RWMutex
 }
 
 func NewXDBStore(dataDir string, hashKey string) *XDBStore {
@@ -43,6 +45,8 @@ func NewXDBStore(dataDir string, hashKey string) *XDBStore {
 		DataDir:          dataDir,
 		hashKey:          hashKey,
 		dataBlockManager: dataBlockManager,
+		collections:      make([]Collection, 0),
+		mu:               sync.RWMutex{},
 	}
 	//TODO: Improve to remove cross dependencies
 	queryExecutor := NewBaseExecutor(dataBlockManager, dataDir, store.getCollectionHash)
@@ -63,6 +67,9 @@ func NewXDBStore(dataDir string, hashKey string) *XDBStore {
 
 // init permit a node to attach an existing dir as data store
 func (s *XDBStore) init() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	dirEntries, err := os.ReadDir(s.DataDir)
 
 	if err != nil {
@@ -78,35 +85,48 @@ func (s *XDBStore) init() {
 			}
 
 			//TODO Init indexes from the file
-			s.collections = append(s.collections, *newCollection(collectionName))
+			s.collections = append(s.collections, newCollection(collectionName))
 		}
 	}
 }
 
 // CreateCollection creates a new file for the collection with the given name.
 func (s *XDBStore) CreateCollection(name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Check if collection already exists
 	for _, collection := range s.collections {
-		if collection.name == name {
-			return fmt.Errorf("collection '%s' already exists\n", name)
+		if collection.Name == name {
+			return fmt.Errorf("collection '%s' already exists", name)
 		}
 	}
-	//TODO: create collection index files
+
+	// Create collection directory and files
 	fullPath := s.getFullPathWithHash(name)
 	if err := os.MkdirAll(fullPath, os.ModePerm); err != nil {
-		return fmt.Errorf("error creating collection file: %v\n", err)
+		return fmt.Errorf("error creating collection file: %v", err)
 	}
 
 	if err := os.WriteFile(fullPath+"/data-1", nil, 0644); err != nil {
-		return fmt.Errorf("error creating initial data file for collection %v with error : %v\n", name, err)
+		return fmt.Errorf("error creating initial data file for collection %v with error : %v", name, err)
 	}
 
-	collection := newCollection(name)
-	s.collections = append(s.collections, *collection)
+	s.collections = append(s.collections, newCollection(name))
 	return nil
 }
 
+func (s *XDBStore) GetCollections() []Collection {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.collections
+}
+
 func (s *XDBStore) Has(collection string) bool {
-	return s.collectionExists(collection)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	res := s.collectionExists(collection)
+	return res
 }
 
 func (s *XDBStore) Get(query string) ([]byte, error) {
@@ -127,8 +147,11 @@ func (s *XDBStore) Clear() error {
 }
 
 func (s *XDBStore) Save(collection string, b []byte) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if !s.collectionExists(collection) {
-		return false, fmt.Errorf("collection '%s' does not exist", collection)
+		return false, fmt.Errorf("collection [%s] does not exist", collection)
 	}
 
 	var (
@@ -176,14 +199,6 @@ func (s *XDBStore) getFullPathWithHash(collection string) string {
 	return s.DataDir + "/" + s.getCollectionHash(collection)
 }
 
-func (s *XDBStore) GetCollections() []string {
-	collections := make([]string, len(s.collections))
-	for i, collection := range s.collections {
-		collections[i] = collection.name
-	}
-	return collections
-}
-
 // TODO: put X data blocks per file. => find last file to append to or create a new one
 func (s *XDBStore) getFileToWriteIn(collection string) string {
 	return s.getFullPathWithHash(collection) + "/data-1"
@@ -195,10 +210,6 @@ func dirExists(dirPath string) bool {
 		return false
 	}
 	return info.IsDir()
-}
-
-func isSameData(a, b []byte) bool {
-	return bytes.Equal(a, b)
 }
 
 // encrypt encrypts the given plaintext string using AES encryption with the provided key and a fixed IV.

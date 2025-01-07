@@ -77,8 +77,8 @@ const Collections: FC = () => {
 
     return <div className="flex flex-wrap gap-5">
         {collections.map((collection) =>
-            <CollectionCard key={collection} onClick={() => navigate(`/${collection}`)}>
-                {collection}
+            <CollectionCard key={collection.name} onClick={() => navigate(`/${collection}`)}>
+                {collection.name}
             </CollectionCard>)}
     </div>
 }
@@ -101,7 +101,7 @@ const CreateCollectionForm: FC = () => {
             queryClient.invalidateQueries("/collections")
             alert("Collection created successfully")
             form.reset()
-        }).catch((err: ErrorResponse) => alert(`An error occurred while trying to create the collection : ${err.response.data.error}`))
+        }).catch((err: ErrorResponse) => alert(`An error occurred while trying to create the collection : ${err.response?.data.error}`))
     }
 
     return (

@@ -17,8 +17,9 @@ const (
 type NodeHttpServer struct {
 	tcpServer *p2p.Server
 	store     *store.XDBStore
-	addr      string
 	app       *fiber.App
+	logger    *log.Logger
+	addr      string
 }
 
 func NewHttpServer(store *store.XDBStore, addr string, tcpServer *p2p.Server) *NodeHttpServer {
@@ -100,6 +101,7 @@ func (s *NodeHttpServer) getNodeInfos(c *fiber.Ctx) error {
 	return c.JSON(map[string]string{
 		"ip":             s.tcpServer.ServerOpts.Transport.Addr(),
 		"localStorePath": s.store.DataDir,
+		"localLogPath":   s.logger,
 		//"localLogsPath": s.store,
 	})
 }

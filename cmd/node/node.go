@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/google/uuid"
 	"xdb/api"
 	"xdb/internal/p2p"
 	"xdb/internal/store"
@@ -8,6 +9,8 @@ import (
 
 // A Node represents an instance of the db running on the network
 type Node struct {
+	id         uuid.UUID
+	version    string
 	httpServer *api.NodeHttpServer
 	tcpServer  *p2p.Server
 	store      *store.XDBStore
@@ -15,6 +18,7 @@ type Node struct {
 
 type NodeOpts struct {
 	peers    []string
+	version  string
 	hashKey  string
 	nodeAddr string
 	apiAddr  string
@@ -29,6 +33,8 @@ func NewNode(opts NodeOpts) *Node {
 	httpServer := api.NewHttpServer(s, opts.apiAddr, s1)
 
 	return &Node{
+		id: uuid.New(),
+		version: "0.0.1",
 		store:      s,
 		httpServer: httpServer,
 		tcpServer:  s1,

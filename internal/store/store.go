@@ -4,12 +4,12 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"sync"
+	"xdb/internal/shared"
 )
 
 const (
@@ -53,7 +53,7 @@ func NewXDBStore(dataDir string, hashKey string) *XDBStore {
 
 	store.queryExecutor = queryExecutor
 
-	if !dirExists(dataDir) {
+	if !shared.DirExists(dataDir) {
 		//Write default data dir
 		if err := os.MkdirAll(store.DataDir, os.ModePerm); err != nil {
 			panic(err)
@@ -202,14 +202,6 @@ func (s *XDBStore) getFullPathWithHash(collection string) string {
 // TODO: put X data blocks per file. => find last file to append to or create a new one
 func (s *XDBStore) getFileToWriteIn(collection string) string {
 	return s.getFullPathWithHash(collection) + "/data-1"
-}
-
-func dirExists(dirPath string) bool {
-	info, err := os.Stat(dirPath)
-	if err != nil && errors.Is(err, os.ErrNotExist) {
-		return false
-	}
-	return info.IsDir()
 }
 
 // encrypt encrypts the given plaintext string using AES encryption with the provided key and a fixed IV.

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"log"
+	"xdb/internal/p2p"
 	"xdb/internal/store"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,20 +15,22 @@ const (
 )
 
 type NodeHttpServer struct {
-	store *store.XDBStore
-	addr  string
-	app   *fiber.App
+	tcpServer *p2p.Server
+	store     *store.XDBStore
+	addr      string
+	app       *fiber.App
 }
 
-func NewHttpServer(store *store.XDBStore, addr string) *NodeHttpServer {
+func NewHttpServer(store *store.XDBStore, addr string, tcpServer *p2p.Server) *NodeHttpServer {
 	if addr == "" {
 		addr = DefaultAPIAddr
 	}
 
 	return &NodeHttpServer{
-		store: store,
-		addr:  addr,
-		app:   fiber.New(),
+		tcpServer: tcpServer,
+		store:     store,
+		addr:      addr,
+		app:       fiber.New(),
 	}
 }
 
@@ -93,6 +96,20 @@ func (s *NodeHttpServer) createCollectionAPI(c *fiber.Ctx) error {
 	return nil
 }
 
+func (s *NodeHttpServer) getNodeInfos(c *fiber.Ctx) error {
+	return c.JSON(map[string]string{
+		"ip":             s.tcpServer.ServerOpts.Transport.Addr(),
+		"localStorePath": s.store.DataDir,
+		//"localLogsPath": s.store,
+	})
+}
+
+func (s *NodeHttpServer) getGraphInfos(c *fiber.Ctx) error {
+	return c.JSON(map[string]interface{}{
+		"peers": s.tcpServer.BootstrapNodes,
+	})
+}
+
 func (s *NodeHttpServer) Start() error {
 	s.app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
@@ -101,6 +118,8 @@ func (s *NodeHttpServer) Start() error {
 	}))
 	s.app.Get("/apis", s.getXDBApis)
 	s.app.Get("/health", s.healthcheckHandler)
+	s.app.Get("/node", s.getNodeInfos)
+	s.app.Get("/graph", s.getGraphInfos)
 
 	//Collections API
 	s.app.Post("/collections", s.createCollectionAPI)

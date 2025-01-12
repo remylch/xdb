@@ -4,6 +4,7 @@ import (
 	"log"
 	"testing"
 	"time"
+	"xdb/internal/shared"
 	"xdb/internal/store"
 
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,7 @@ func tearDown(s *Server) {
 }
 
 func TestClientHandshake(t *testing.T) {
-	st := store.NewXDBStore(store.DefaultTestDataDir, "your-32-byte-secret-key-here!!!!")
+	st := store.NewXDBStore(shared.DefaultXdbTestDataDirectory, "your-32-byte-secret-key-here!!!!")
 	s1 := MakeServer(DefaultServerAddr, st)
 
 	go s1.Start()

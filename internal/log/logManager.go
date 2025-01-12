@@ -2,11 +2,13 @@ package log
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"os"
+	"strings"
 	"sync"
 	"time"
 	"xdb/internal/shared"
+
+	"github.com/google/uuid"
 )
 
 type LogLevel string
@@ -18,7 +20,7 @@ const (
 
 const (
 	MaxLogFileSize = 1024 * 1024 * 10
-	logFile = "xdb.log"
+	logFile        = "xdb.log"
 )
 
 type Log struct {
@@ -29,15 +31,16 @@ type Log struct {
 }
 
 type Logger interface {
-	log(level LogLevel, message string)
+	Log(level LogLevel, messages ...string)
+	Dir() string
 }
 
 type LogManager struct {
 	logDir string
-	mu sync.RWMutex
+	mu     sync.RWMutex
 }
 
-func NewLogManager(logDir string) Logger {
+func NewDefaultLogger(logDir string) Logger {
 	if !shared.DirExists(logDir) {
 		if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
 			panic(err)
@@ -50,27 +53,35 @@ func NewLogManager(logDir string) Logger {
 
 	return &LogManager{
 		logDir: logDir,
-		mu: sync.RWMutex{},
+		mu:     sync.RWMutex{},
 	}
 }
 
-func (l *LogManager) log(level LogLevel, message string) {
+func (l *LogManager) Log(level LogLevel, messages ...string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	log := Log{
 		timestamp: time.Now(),
 		level:     level,
-		message:   message,
+		message:   strings.Join(messages, " "),
 	}
 
-	if err := l.writeLog(log); err != nil {
+	msg := fmt.Sprintf("%s [%s] %s\n", log.timestamp.Format(time.RFC3339), log.level, log.message)
+
+	fmt.Println(msg)
+
+	if err := l.writeLog(msg); err != nil {
 		fmt.Errorf("Error writing log to file : %v \n", err)
 	}
 
 }
 
-func (l *LogManager) writeLog(log Log) error {
+func (l *LogManager) Dir() string {
+	return l.logDir
+}
+
+func (l *LogManager) writeLog(log string) error {
 	file, err := os.OpenFile(getLogFilePath(l.logDir), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err != nil {
@@ -79,7 +90,7 @@ func (l *LogManager) writeLog(log Log) error {
 
 	defer file.Close()
 
-	if _, err = file.WriteString(fmt.Sprintf("%s [%s] %s\n", log.timestamp.Format(time.RFC3339), log.level, log.message)); err != nil {
+	if _, err = file.WriteString(log); err != nil {
 		return err
 	}
 

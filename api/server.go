@@ -2,7 +2,8 @@ package api
 
 import (
 	"encoding/json"
-	"log"
+
+	"xdb/internal/log"
 	"xdb/internal/p2p"
 	"xdb/internal/store"
 
@@ -18,11 +19,12 @@ type NodeHttpServer struct {
 	tcpServer *p2p.Server
 	store     *store.XDBStore
 	app       *fiber.App
-	logger    *log.Logger
-	addr      string
+
+	logger log.Logger
+	addr   string
 }
 
-func NewHttpServer(store *store.XDBStore, addr string, tcpServer *p2p.Server) *NodeHttpServer {
+func NewHttpServer(store *store.XDBStore, addr string, tcpServer *p2p.Server, logger log.Logger) *NodeHttpServer {
 	if addr == "" {
 		addr = DefaultAPIAddr
 	}
@@ -32,6 +34,7 @@ func NewHttpServer(store *store.XDBStore, addr string, tcpServer *p2p.Server) *N
 		store:     store,
 		addr:      addr,
 		app:       fiber.New(),
+		logger:    logger,
 	}
 }
 
@@ -101,8 +104,7 @@ func (s *NodeHttpServer) getNodeInfos(c *fiber.Ctx) error {
 	return c.JSON(map[string]string{
 		"ip":             s.tcpServer.ServerOpts.Transport.Addr(),
 		"localStorePath": s.store.DataDir,
-		"localLogPath":   s.logger,
-		//"localLogsPath": s.store,
+		"localLogPath":   s.logger.Dir(),
 	})
 }
 
@@ -128,6 +130,6 @@ func (s *NodeHttpServer) Start() error {
 	s.app.Get("/collections", s.getCollectionsHandler)
 	s.app.Get("/collections/data", s.queryData)
 
-	log.Println("API listening on ", s.addr)
+	s.logger.Log(log.INFO, "API listening on "+s.addr)
 	return s.app.Listen(s.addr)
 }

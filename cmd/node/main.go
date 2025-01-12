@@ -26,6 +26,7 @@ func main() {
 		peers:    conf.Server.BootstrapNodes,
 		hashKey:  conf.Secret.HashKey,
 		dataDir:  conf.Storage.DataDir,
+		logDir:   conf.Log.LogDir,
 		nodeAddr: conf.Server.NodeAddr,
 		apiAddr:  conf.Server.ApiAddr,
 	})

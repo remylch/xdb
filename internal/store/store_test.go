@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"xdb/internal/shared"
 )
 
 func tearDown(s *XDBStore) {
@@ -14,7 +15,7 @@ func tearDown(s *XDBStore) {
 // FIXME
 func TestXDBStore(t *testing.T) {
 	collection := "test"
-	s := NewXDBStore(DefaultTestDataDir, "your-32-byte-secret-key-here!!!!")
+	s := NewXDBStore(shared.DefaultXdbTestDataDirectory, "your-32-byte-secret-key-here!!!!")
 
 	s.CreateCollection(collection)
 
@@ -60,9 +61,9 @@ func TestXDBStore(t *testing.T) {
 }
 
 func TestStoreInitialization(t *testing.T) {
-	s := NewXDBStore(DefaultTestDataDir, "your-32-byte-secret-key-here!!!!")
+	s := NewXDBStore(shared.DefaultXdbTestDataDirectory, "your-32-byte-secret-key-here!!!!")
 
-	dir, err := os.ReadDir(DefaultTestDataDir)
+	dir, err := os.ReadDir(shared.DefaultXdbTestDataDirectory)
 
 	if err != nil {
 		t.Error("store directory should exist. Error : ", err)
@@ -79,7 +80,7 @@ func TestStoreInitialization(t *testing.T) {
 
 func TestCryptoFilename(t *testing.T) {
 	baseFileName := "test"
-	s := NewXDBStore(DefaultTestDataDir, "your-32-byte-secret-key-here!!!!")
+	s := NewXDBStore(shared.DefaultXdbTestDataDirectory, "your-32-byte-secret-key-here!!!!")
 
 	encryptedFileName, err := encryptFilename(s.hashKey, baseFileName)
 

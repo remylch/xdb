@@ -3,6 +3,7 @@ package store
 import (
 	"crypto/rand"
 	"testing"
+	"xdb/internal/shared"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -41,7 +42,7 @@ func TestDefaultDataBlockManager_ReadDataBlock(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		s := NewXDBStore(DefaultTestDataDir, "your-32-byte-secret-key-here!!!!")
+		s := NewXDBStore(shared.DefaultXdbTestDataDirectory, "your-32-byte-secret-key-here!!!!")
 		collection := "test"
 		s.CreateCollection(collection)
 

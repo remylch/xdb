@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	DefaultDataDir     = "/opt/xdb/internal"
-	DefaultTestDataDir = "./test/"
+	DefaultDataDir = shared.DefaultBaseXdbDirectory + "internal"
 )
 
 type XDBStore struct {

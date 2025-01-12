@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 	"xdb/internal/p2p"
-	"xdb/internal/store"
+	"xdb/internal/shared"
 )
 
 const (
@@ -18,7 +18,8 @@ func TestMultiNodeDataReplication(t *testing.T) {
 	n1 := NewNode(NodeOpts{
 		peers:    []string{},
 		hashKey:  HashKeyFixture,
-		dataDir:  store.DefaultTestDataDir + "node1/",
+		dataDir:  shared.DefaultXdbTestDataDirectory + "node1/",
+		logDir:   shared.DefaultXdbTestLogDirectory + "node1/",
 		nodeAddr: ":3001",
 		apiAddr:  ":8081",
 	})
@@ -33,7 +34,8 @@ func TestMultiNodeDataReplication(t *testing.T) {
 		n2 := NewNode(NodeOpts{
 			peers:    []string{":3001"},
 			hashKey:  HashKeyFixture,
-			dataDir:  store.DefaultTestDataDir + "node2/",
+			dataDir:  shared.DefaultXdbTestDataDirectory + "node2/",
+			logDir:   shared.DefaultXdbTestLogDirectory + "node2/",
 			nodeAddr: ":3002",
 			apiAddr:  ":8082",
 		})
@@ -58,13 +60,13 @@ func TestMultiNodeDataReplication(t *testing.T) {
 
 	time.Sleep(time.Second * 1)
 
-	filesNode1, _ := os.ReadDir(store.DefaultTestDataDir + "node1/")
+	filesNode1, _ := os.ReadDir(shared.DefaultXdbTestDataDirectory + "node1/")
 
 	if len(filesNode1) == 0 {
 		t.Error("Expected 1 collection in node1, got ", len(filesNode1))
 	}
 
-	filesNode2, _ := os.ReadDir(store.DefaultTestDataDir + "node2/")
+	filesNode2, _ := os.ReadDir(shared.DefaultXdbTestDataDirectory + "node2/")
 
 	if len(filesNode2) == 0 {
 		t.Error("Expected 1 collection in node2, got ", len(filesNode2))
@@ -79,4 +81,9 @@ func TestMultiNodeDataReplication(t *testing.T) {
 
 	n1.store.Clear()
 	n2.store.Clear()
+	deleteTestLogDir()
+}
+
+func deleteTestLogDir() {
+	os.RemoveAll("./log")
 }

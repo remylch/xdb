@@ -62,6 +62,19 @@ func (s *Server) GetPeerGraph() string {
 	return fmt.Sprintf("\n-----------\n[%s] : %s\n-----------\n", s.Transport.Addr(), strPeers)
 }
 
+func (s *Server) GetClients() []string {
+	var clients []string
+	s.peerLock.Lock()
+	defer s.peerLock.Unlock()
+
+	for _, peer := range s.peers {
+		if peer.IsClient() {
+			clients = append(clients, peer.RemoteAddr().String())
+		}
+	}
+	return clients
+}
+
 func (s *Server) OnPeer(peer Peer) {
 	s.peerLock.Lock()
 	defer s.peerLock.Unlock()

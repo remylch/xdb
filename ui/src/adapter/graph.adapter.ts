@@ -1,5 +1,5 @@
 import { axiosInstance } from ".";
-import {GraphResponse} from "../type/graph.ts";
+import { GraphInfoResponse } from "../type/graph.ts";
 
-export const fetchGraphInfos = async (): Promise<GraphResponse> =>
-    (await axiosInstance.get("/graph")).data;
+export const fetchGraphInfos = async (): Promise<GraphInfoResponse> =>
+  (await axiosInstance.get("/graph")).data;

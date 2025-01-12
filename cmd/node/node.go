@@ -20,7 +20,6 @@ type Node struct {
 
 type NodeOpts struct {
 	peers    []string
-	version  string
 	hashKey  string
 	nodeAddr string
 	apiAddr  string
@@ -30,15 +29,18 @@ type NodeOpts struct {
 }
 
 func NewNode(opts NodeOpts) *Node {
+	nodeId := uuid.New()
+	version := "0.0.1"
+
 	logger := log.NewDefaultLogger(opts.logDir)
 
 	s := store.NewXDBStore(opts.dataDir, opts.hashKey)
 	s1 := p2p.MakeServer(opts.nodeAddr, s, opts.peers...)
-	httpServer := api.NewHttpServer(s, opts.apiAddr, s1, logger)
+	httpServer := api.NewHttpServer(s, opts.apiAddr, version, s1, logger)
 
 	return &Node{
-		id:         uuid.New(),
-		version:    "0.0.1",
+		id:         nodeId,
+		version:    version,
 		store:      s,
 		httpServer: httpServer,
 		tcpServer:  s1,

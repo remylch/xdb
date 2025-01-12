@@ -8,6 +8,9 @@ import {Title} from "./component/title.tsx";
 import {TextInput} from "./component/input.tsx";
 import {Button} from "./component/button.tsx";
 import {ErrorResponse} from "./type/error.ts";
+import { useNode } from './hook/useNode.ts';
+import { Error } from './component/error.tsx';
+import { useGraph } from './hook/useGraph.ts';
 
 function App() {
     return (
@@ -19,32 +22,49 @@ function App() {
 }
 
 const Infos: FC = () =>
-    <div className="flex gap-5 w-full">
+    <div className="flex flex-wrap gap-5 w-full">
         <NodeInfos/>
         <GraphInfos/>
     </div>
 
 const NodeInfos: FC = () => {
+    const {data, isFetching, isLoading, error} = useNode()
+
+    if (isLoading || isFetching) {
+        return <Loader text='Loading node info...' />
+    }
+
+    if (error) {
+        return <Error errorType='internal' text='Error retrieving node infos' />
+    }
+
     return <div className="p-5 border border-gray-900 rounded-md flex-1">
         <Title>Node Info</Title>
         <ul>
-            <li>Node ID: <span className="text-gray-600">...</span></li>
-            <li>Version: <span className="text-gray-600">...</span></li>
-            <li>OS: <span className="text-gray-600">...</span></li>
-            <li>Memory: <span className="text-gray-600">...</span></li>
-            <li>CPU: <span className="text-gray-600">...</span></li>
+            <li>Version: <span className="text-gray-600">{data?.version}</span></li>
+            <li>IP: <span className="text-gray-600">{data?.ip}</span></li>
+            <li>Storage path: <span className="text-gray-600">{data?.localStorePath}</span></li>
+            <li>Log path: <span className="text-gray-600">{data?.localLogPath}</span></li>
         </ul>
     </div>
 }
 
 const GraphInfos: FC = () => {
+    const {data, error, isFetching, isLoading} = useGraph()
+
+    if (isLoading || isFetching) {
+        return <Loader text='Loading graph info...' />
+    }
+
+    if (error) {
+        return <Error errorType='internal' text='Error retrieving graph infos' />
+    }
+
     return <div className="p-5 border border-gray-900 rounded-md flex-1">
         <Title>Graph Info</Title>
         <ul>
-            <li>Collection count: <span className="text-gray-600">...</span></li>
-            <li>Document count: <span className="text-gray-600">...</span></li>
-            <li>Size: <span className="text-gray-600">...</span></li>
-            <li>Indexing status: <span className="text-gray-600">...</span></li>
+            <li>Active nodes: <span className="text-gray-600">{data?.nodes}</span></li>
+            <li>Clients: <span className="text-gray-600">{data?.clients}</span></li>
         </ul>
     </div>
 }
@@ -75,7 +95,7 @@ const Collections: FC = () => {
         return <span>No collections found</span>
     }
 
-    return <div className="flex flex-wrap gap-5">
+    return <div className="grid lg:grid-cols-4 gap-5 md:grid-cols-3 grid-cols-1">
         {collections.map((collection) =>
             <CollectionCard key={collection.name} onClick={() => navigate(`/${collection}`)}>
                 {collection.name}
@@ -113,7 +133,7 @@ const CreateCollectionForm: FC = () => {
 }
 
 const CollectionCard: FC<PropsWithChildren<{ onClick: () => void }>> = ({children, onClick}) =>
-    <div onClick={onClick} className="px-5 py-2 border rounded-md w-fit flex items-center gap-5 cursor-pointer">
+    <div onClick={onClick} className="px-5 py-2 border rounded-md flex items-center gap-5 cursor-pointer">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"
              className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round"

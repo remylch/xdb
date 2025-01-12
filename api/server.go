@@ -21,10 +21,12 @@ type NodeHttpServer struct {
 	app       *fiber.App
 
 	logger log.Logger
-	addr   string
+
+	addr    string
+	version string
 }
 
-func NewHttpServer(store *store.XDBStore, addr string, tcpServer *p2p.Server, logger log.Logger) *NodeHttpServer {
+func NewHttpServer(store *store.XDBStore, addr, version string, tcpServer *p2p.Server, logger log.Logger) *NodeHttpServer {
 	if addr == "" {
 		addr = DefaultAPIAddr
 	}
@@ -34,6 +36,7 @@ func NewHttpServer(store *store.XDBStore, addr string, tcpServer *p2p.Server, lo
 		store:     store,
 		addr:      addr,
 		app:       fiber.New(),
+		version:   version,
 		logger:    logger,
 	}
 }
@@ -102,6 +105,7 @@ func (s *NodeHttpServer) createCollectionAPI(c *fiber.Ctx) error {
 
 func (s *NodeHttpServer) getNodeInfos(c *fiber.Ctx) error {
 	return c.JSON(map[string]string{
+		"version":        s.version,
 		"ip":             s.tcpServer.ServerOpts.Transport.Addr(),
 		"localStorePath": s.store.DataDir,
 		"localLogPath":   s.logger.Dir(),
@@ -110,7 +114,8 @@ func (s *NodeHttpServer) getNodeInfos(c *fiber.Ctx) error {
 
 func (s *NodeHttpServer) getGraphInfos(c *fiber.Ctx) error {
 	return c.JSON(map[string]interface{}{
-		"peers": s.tcpServer.BootstrapNodes,
+		"nodes":   s.tcpServer.BootstrapNodes,
+		"clients": s.tcpServer.GetClients(),
 	})
 }
 

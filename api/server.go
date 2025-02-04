@@ -2,11 +2,16 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"time"
 
 	"xdb/internal/log"
 	"xdb/internal/p2p"
 	"xdb/internal/store"
 
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
@@ -119,6 +124,69 @@ func (s *NodeHttpServer) getGraphInfos(c *fiber.Ctx) error {
 	})
 }
 
+func (s *NodeHttpServer) streamLogsHandler(c *fiber.Ctx) error {
+	if websocket.IsWebSocketUpgrade(c) {
+		return c.Next()
+	}
+	return fiber.ErrUpgradeRequired
+}
+
+func (s *NodeHttpServer) handleLogStream(c *websocket.Conn) {
+	logFile := s.logger.Dir() + "/xdb.log"
+	var lastPos int64 = 0
+
+	for {
+		file, err := os.Open(logFile)
+		if err != nil {
+			fmt.Printf("Error opening log file: %v", err)
+			break
+		}
+
+		stat, err := file.Stat()
+		if err != nil {
+			fmt.Printf("Error getting file stats: %v", err)
+			file.Close()
+			break
+		}
+
+		if stat.Size() <= lastPos {
+			file.Close()
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		_, err = file.Seek(lastPos, 0)
+		if err != nil {
+			fmt.Printf("Error seeking file : %v", err)
+			file.Close()
+			break
+		}
+
+		buffer := make([]byte, stat.Size()-lastPos)
+		n, err := file.Read(buffer)
+
+		if err != nil && err != io.EOF {
+			fmt.Printf("Error reading file %v", err)
+			file.Close()
+			break
+		}
+
+		lastPos = stat.Size()
+
+		if n > 0 {
+			if err := c.WriteMessage(websocket.TextMessage, buffer[:n]); err != nil {
+				fmt.Printf("Error writing to websocket %v", err)
+				file.Close()
+				break
+			}
+		}
+
+		file.Close()
+		time.Sleep(1 * time.Second)
+
+	}
+}
+
 func (s *NodeHttpServer) Start() error {
 	s.app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
@@ -129,6 +197,10 @@ func (s *NodeHttpServer) Start() error {
 	s.app.Get("/health", s.healthcheckHandler)
 	s.app.Get("/node", s.getNodeInfos)
 	s.app.Get("/graph", s.getGraphInfos)
+
+	//File websocket
+	s.app.Use("/logs", websocket.New(s.handleLogStream))
+	s.app.Get("/logs", s.streamLogsHandler)
 
 	//Collections API
 	s.app.Post("/collections", s.createCollectionAPI)
